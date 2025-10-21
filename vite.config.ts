@@ -3,42 +3,34 @@ import react from "@vitejs/plugin-react";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Fix __dirname for ES module environments
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-    plugins: [
-        react(), // React + Fast Refresh support
-    ],
+    plugins: [react()],
     resolve: {
         alias: {
-            "@": path.resolve(__dirname, "client", "src"),       // Frontend source alias
-            "@shared": path.resolve(__dirname, "shared"),        // Shared logic alias
-            "@assets": path.resolve(__dirname, "attached_assets") // Static assets alias
+            "@": path.resolve(__dirname, "client", "src"),
+            "@shared": path.resolve(__dirname, "shared"),
+            "@assets": path.resolve(__dirname, "attached_assets")
         },
     },
-    root: path.resolve(__dirname, "client"), // Frontend root directory
+    root: path.resolve(__dirname, "client"),
     build: {
-        // --- THIS IS THE CORRECTED LINE ---
-        outDir: path.resolve(__dirname, "dist"), // Build to 'dist' not 'dist/public'
-        emptyOutDir: true, // Clean build directory before rebuilding
+        outDir: path.resolve(__dirname, "dist"),
+        emptyOutDir: true,
     },
     server: {
-        https: false, // Disable HTTPS for local development
-        open: true,  // Auto-open browser on dev start
-        port: 5173,  // Custom dev server port
-        host: true,  // Allow external connections
+        https: false,
+        open: false,
+        port: 5173,
+        host: true,
         proxy: {
-            // Redirect API calls to backend Express server (Vercel ignores this)
             "/api": {
-                target: "http://localhost:5000",
+                target: "http://localhost:3001",
                 changeOrigin: true,
                 secure: false,
+                rewrite: (path) => path,
             },
-        },
-        fs: {
-            strict: true,
-            deny: ["**/.*"], // Disallow access to hidden files
         },
     },
 });
