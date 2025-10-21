@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { body, validationResult } from 'express-validator';
 import dotenv from 'dotenv';
+import path from 'path';
 import { db } from './db';
 import { users, streaks, tasks, sessions, goals } from './db/schema';
 import { eq, and } from 'drizzle-orm';
@@ -50,6 +51,7 @@ app.use((req, res, next) => {
     const allowedOrigins = [
         'http://localhost:5173',
         'http://localhost:3000',
+        'http://localhost:10000',
         process.env.CLIENT_URL,
     ].filter(Boolean);
 
@@ -69,6 +71,11 @@ app.use((req, res, next) => {
     console.log(`${req.method} ${req.path}`);
     next();
 });
+
+// =================== SERVE STATIC FILES ===================
+const clientDistPath = path.join(__dirname, '../client/dist');
+console.log(`📁 Serving static files from: ${clientDistPath}`);
+app.use(express.static(clientDistPath));
 
 // =================== HEALTH CHECK ===================
 app.get('/health', (req, res) => {
@@ -350,11 +357,13 @@ app.patch('/api/streaks', authenticateToken, async (req: AuthRequest, res) => {
     }
 });
 
-// =================== ERROR HANDLING ===================
-app.use((req, res) => {
-    res.status(404).json({ error: 'Route not found' });
+// =================== SPA FALLBACK ===================
+// This must be AFTER all API routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
+// =================== ERROR HANDLING ===================
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     console.error('Error:', err);
     res.status(err.status || 500).json({
