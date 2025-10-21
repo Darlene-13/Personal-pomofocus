@@ -7,11 +7,13 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { DynamicBackground } from "@/components/DynamicBackground";
 import Home from "@/pages/home";
 import NotFound from "@/pages/not-found";
+import Login from "@/pages/Login";
 
 function Router() {
     return (
         <Switch>
             <Route path="/" component={Home} />
+            <Route path="/login" component={Login} />
             <Route component={NotFound} />
         </Switch>
     );
