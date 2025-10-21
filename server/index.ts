@@ -78,6 +78,18 @@ app.use((req, res, next) => {
 
 registerRoutes(app);
 
+// Debug: Log all registered routes
+app.use((req, res, next) => {
+    console.log(`🔍 Request received: ${req.method} ${req.path}`);
+    next();
+});
+
+// 404 handler
+app.use((req, res) => {
+    console.warn(`⚠️ No route found for: ${req.method} ${req.path}`);
+    res.status(404).json({ message: 'Route not found', path: req.path, method: req.method });
+});
+
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     setCorsHeaders(req, res);
 
