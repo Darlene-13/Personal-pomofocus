@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Theme } from "@shared/schema";
+import { Theme } from "../../../server/db/schema";
 import { themeConfigs } from "@/lib/themes";
 
 type ColorMode = 'light' | 'dark';

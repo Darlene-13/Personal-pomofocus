@@ -1,7 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, Area, AreaChart } from "recharts";
 import { Card } from "@/components/ui/card";
 import { Clock, CheckCircle, Target, Download, TrendingUp, Calendar } from "lucide-react";
-import { Session, Task } from "@shared/schema";
+import { Session, Task } from "../../../server/db/schema";
 import { exportSessionsToCSV, exportTasksToCSV } from '../lib/exportCSV';
 
 interface AnalyticsDashboardProps {

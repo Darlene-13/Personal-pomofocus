@@ -1,4 +1,4 @@
-import { Theme } from "@shared/schema";
+import { Theme } from "../../../server/db/schema";
 
 export interface ThemeConfig {
   name: string;
