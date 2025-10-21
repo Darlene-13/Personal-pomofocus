@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 
-// --- ADD THIS LINE ---
-const BASE_URL = import.meta.env.VITE_API_URL;
+// --- REMOVE THIS LINE ---
+// const BASE_URL = import.meta.env.VITE_API_URL;
 
 // Create query client instance
 export const queryClient = new QueryClient({
@@ -55,21 +55,30 @@ export async function authRequest(
         options.body = JSON.stringify(body);
     }
 
-    // --- UPDATE THIS LINE ---
-    // Prepend the BASE_URL to the path
-    const response = await fetch(`${BASE_URL}${path}`, options);
+    // --- USE RELATIVE PATH ---
+    const response = await fetch(path, options); // Use 'path' directly
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Request failed" }));
+        // Attempt to parse error, provide fallback
+        let errorData = { error: "Request failed", message: `HTTP error! status: ${response.status}` };
+        try {
+            errorData = await response.json();
+        } catch (e) {
+            // Ignore JSON parsing error if response body is not JSON
+        }
         throw new Error(errorData.error || errorData.message || "Request failed");
     }
 
-    // Handle empty responses (like DELETE)
+    // Handle empty responses (like DELETE or 204 No Content)
+    if (response.status === 204) {
+        return null;
+    }
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
         return response.json();
     }
 
+    // Handle non-JSON responses if necessary, otherwise return null or handle as error
     return null;
 }
 
@@ -92,19 +101,29 @@ export async function publicRequest(
         options.body = JSON.stringify(body);
     }
 
-    // --- UPDATE THIS LINE ---
-    // Prepend the BASE_URL to the path
-    const response = await fetch(`${BASE_URL}${path}`, options);
+    // --- USE RELATIVE PATH ---
+    const response = await fetch(path, options); // Use 'path' directly
 
     if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Request failed" }));
+        // Attempt to parse error, provide fallback
+        let errorData = { error: "Request failed", message: `HTTP error! status: ${response.status}` };
+        try {
+            errorData = await response.json();
+        } catch (e) {
+            // Ignore JSON parsing error if response body is not JSON
+        }
         throw new Error(errorData.error || errorData.message || "Request failed");
     }
 
+    // Handle empty responses
+    if (response.status === 204) {
+        return null;
+    }
     const contentType = response.headers.get("content-type");
     if (contentType && contentType.includes("application/json")) {
         return response.json();
     }
 
+    // Handle non-JSON responses if necessary
     return null;
 }
