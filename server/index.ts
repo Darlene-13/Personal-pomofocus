@@ -1,3 +1,4 @@
+import { VercelRequest, VercelResponse } from "@vercel/node";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import dotenv from "dotenv";
@@ -10,10 +11,8 @@ const app = express();
 const setCorsHeaders = (req: Request, res: Response) => {
     const origin = req.headers.origin;
 
-    // Log every request
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} from ${origin || 'no-origin'}`);
 
-    // Check if origin is allowed
     const isAllowed = origin && (
         origin.endsWith('.vercel.app') ||
         origin.includes('localhost') ||
@@ -34,29 +33,22 @@ const setCorsHeaders = (req: Request, res: Response) => {
     }
 };
 
-// --- CORS Middleware (FIRST) ---
+// --- CORS Middleware ---
 app.use((req, res, next) => {
     setCorsHeaders(req, res);
 
-    // Handle preflight
-    if (req.method === 'OPTIONS') {
-        console.log('✈️ Preflight OPTIONS request handled');
-        return res.status(204).end();
-    }
+    if (req.method === 'OPTIONS') return res.status(204).end();
 
     next();
 });
 
-// --- Body Parsing Middleware ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// --- Additional CORS check before every response ---
 app.use((req, res, next) => {
     const originalSend = res.send;
     const originalJson = res.json;
 
-    // Ensure CORS headers are set before sending response
     res.send = function(data) {
         setCorsHeaders(req, res);
         return originalSend.call(this, data);
@@ -70,7 +62,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// --- Request Logging Middleware ---
 app.use((req, res, next) => {
     const start = Date.now();
     const path = req.path;
@@ -81,34 +72,25 @@ app.use((req, res, next) => {
             console.log(`${req.method} ${path} ${res.statusCode} in ${duration}ms`);
         }
     });
+
     next();
 });
 
-// --- Register API Routes ---
 registerRoutes(app);
 
-// --- Global Error Handling Middleware (LAST) ---
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-    // Ensure CORS headers even on errors
     setCorsHeaders(req, res);
 
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error('❗ Error:', {
-        status,
-        message,
-        path: req.path,
-        method: req.method
-    });
+    console.error('❗ Error:', { status, message, path: req.path, method: req.method });
 
     res.status(status).json({
         message,
-        ...(process.env.NODE_ENV === 'development' && {
-            error: err.toString()
-        })
+        ...(process.env.NODE_ENV === 'development' && { error: err.toString() })
     });
 });
 
-// --- Export for Vercel Serverless ---
-export default app;
+// --- Wrap Express app for Vercel ---
+export default (req: VercelRequest, res: VercelResponse) => app(req, res);
