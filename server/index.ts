@@ -5,7 +5,7 @@ import { body, validationResult } from 'express-validator';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { db } from './db';
+import { db } from './db/index.ts';
 import { users, streaks, tasks, sessions, goals } from './db/schema';
 import { eq, and } from 'drizzle-orm';
 
