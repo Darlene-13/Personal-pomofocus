@@ -205,17 +205,41 @@
   --shadow-2xl: 0px 25px 50px -12px hsl(0 0% 0% / 0.50);
 
 }
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply font-sans antialiased bg-background text-foreground;
-  }
+/* Ken Burns Animation for Background */
+@keyframes ken-burns {
+    0% {
+        transform: scale(1) translate(0, 0);
+    }
+    50% {
+        transform: scale(1.08) translate(1%, 1%);
+    }
+    100% {
+        transform: scale(1) translate(0, 0);
+    }
 }
 
+.animate-ken-burns {
+    animation: ken-burns 25s ease-in-out infinite;
+}
+
+/* Smooth transitions for theme changes */
+* {
+    transition-property: background-color, border-color, color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 200ms;
+}
+
+@layer base {
+    :root {
+        --background: 0 0% 100%;
+        --foreground: 222.2 84% 4.9%;
+    }
+
+    .dark {
+        --background: 222.2 84% 4.9%;
+        --foreground: 210 40% 98%;
+    }
+}
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.
