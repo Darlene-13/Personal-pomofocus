@@ -317,11 +317,8 @@ export default function Home() {
         >
             <BackgroundSettings
                 opacity={backgroundOpacity}
-                interval={backgroundInterval} onOpacityChange={function (opacity: number): void {
-                throw new Error("Function not implemented.");
-            }} changeInterval={0} onIntervalChange={function (interval: number): void {
-                throw new Error("Function not implemented.");
-            }}            />
+                interval={backgroundInterval}
+            />
 
             <div className="absolute inset-0 opacity-5"
                  style={{
