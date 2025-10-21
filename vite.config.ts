@@ -20,7 +20,6 @@ export default defineConfig({
         emptyOutDir: true,
     },
     server: {
-        https: false,
         open: false,
         port: 5173,
         host: true,
