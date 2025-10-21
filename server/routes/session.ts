@@ -1,6 +1,6 @@
 import express from 'express';
 import { db } from '../db';
-import { sessions } from '../db/schema';
+import { sessions } from '../db/schema.sql';
 import { authenticateToken, AuthRequest } from '../middleware/auth';
 import { eq, and, gte, sql } from 'drizzle-orm';
 
