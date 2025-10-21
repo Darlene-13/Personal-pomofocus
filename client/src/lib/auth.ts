@@ -1,5 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
 
+// --- ADD THIS LINE ---
+const BASE_URL = import.meta.env.VITE_API_URL;
+
 // Create query client instance
 export const queryClient = new QueryClient({
     defaultOptions: {
@@ -27,10 +30,10 @@ export function isAuthenticated(): boolean {
     return !!getAuthToken();
 }
 
-// Auth request helper - works with Vite proxy
+// Auth request helper
 export async function authRequest(
     method: string,
-    path: string,
+    path: string, // 'path' should be like '/api/tasks'
     body?: any
 ): Promise<any> {
     const token = getAuthToken();
@@ -52,8 +55,9 @@ export async function authRequest(
         options.body = JSON.stringify(body);
     }
 
-    // The proxy will handle routing to http://localhost:5000
-    const response = await fetch(path, options);
+    // --- UPDATE THIS LINE ---
+    // Prepend the BASE_URL to the path
+    const response = await fetch(`${BASE_URL}${path}`, options);
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Request failed" }));
@@ -72,7 +76,7 @@ export async function authRequest(
 // Public request helper (no auth required)
 export async function publicRequest(
     method: string,
-    path: string,
+    path: string, // 'path' should be like '/api/auth/login'
     body?: any
 ): Promise<any> {
     const headers: HeadersInit = {
@@ -88,7 +92,9 @@ export async function publicRequest(
         options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(path, options);
+    // --- UPDATE THIS LINE ---
+    // Prepend the BASE_URL to the path
+    const response = await fetch(`${BASE_URL}${path}`, options);
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: "Request failed" }));
