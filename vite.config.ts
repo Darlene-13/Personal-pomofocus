@@ -23,7 +23,7 @@ export default defineConfig({
         emptyOutDir: true, // Clean build directory before rebuilding
     },
     server: {
-        https: true, // Enable HTTPS locally
+        https: true as any, // Enable HTTPS locally
         open: true,  // Auto-open browser on dev start
         port: 5173,  // Custom dev server port
         proxy: {
