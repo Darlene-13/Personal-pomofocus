@@ -1,40 +1,42 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { fileURLToPath } from "url";
+
+// Fix __dirname for ES module environments
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
     plugins: [
-        react(),
-        runtimeErrorOverlay(),
-        ...(process.env.NODE_ENV !== "production" &&
-        process.env.REPL_ID !== undefined
-            ? [
-                await import("@replit/vite-plugin-cartographer").then((m) =>
-                    m.cartographer(),
-                ),
-                await import("@replit/vite-plugin-dev-banner").then((m) =>
-                    m.devBanner(),
-                ),
-            ]
-            : []),
+        react(), // React + Fast Refresh support
     ],
     resolve: {
         alias: {
-            "@": path.resolve(import.meta.dirname, "client", "src"),
-            "@shared": path.resolve(import.meta.dirname, "shared"),
-            "@assets": path.resolve(import.meta.dirname, "attached_assets"),
+            "@": path.resolve(__dirname, "client", "src"),       // Frontend source alias
+            "@shared": path.resolve(__dirname, "shared"),        // Shared logic alias
+            "@assets": path.resolve(__dirname, "attached_assets") // Static assets alias
         },
     },
-    root: path.resolve(import.meta.dirname, "client"),
+    root: path.resolve(__dirname, "client"), // Frontend root directory
     build: {
-        outDir: path.resolve(import.meta.dirname, "dist/public"),
-        emptyOutDir: true,
+        outDir: path.resolve(__dirname, "dist/public"), // Build output
+        emptyOutDir: true, // Clean build directory before rebuilding
     },
     server: {
+        https: true, // Enable HTTPS locally
+        open: true,  // Auto-open browser on dev start
+        port: 5173,  // Custom dev server port
+        proxy: {
+            // Redirect API calls to backend Express server
+            "/api": {
+                target: "http://localhost:5000",
+                changeOrigin: true,
+                secure: false,
+            },
+        },
         fs: {
             strict: true,
-            deny: ["**/.*"],
+            deny: ["**/.*"], // Disallow access to hidden files
         },
     },
 });

@@ -83,11 +83,11 @@ Choose from 5 beautiful color schemes:
 
 ---
 
-## Installation (Replit)
+## Installation
 
 ### Step 1: Create Project
 ```bash
-# Create new React + Vite project on Replit
+# Create new React + Vite project
 ```
 
 ### Step 2: Install Dependencies
@@ -270,7 +270,6 @@ Personal use - customize freely!
 ## Support
 
 For issues or questions:
-1. Check Replit console for errors
 2. Review installation steps
 3. Verify all dependencies installed
 4. Check browser compatibility (modern browsers only)
