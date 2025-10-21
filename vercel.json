@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "./dist",
   "rewrites": [
     {
       "source": "/api/:path*",
@@ -8,5 +10,11 @@
       "source": "/((?!api|assets|src|@vite|node_modules).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "server/index.ts": {
+      "runtime": "nodejs18.x",
+      "maxDuration": 60
+    }
+  }
 }

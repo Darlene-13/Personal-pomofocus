@@ -93,4 +93,16 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
 });
 
 // --- Wrap Express app for Vercel ---
-export default (req: VercelRequest, res: VercelResponse) => app(req, res);
+// This is the critical fix - handle the request properly
+export default async (req: VercelRequest, res: VercelResponse) => {
+    // Handle the request through Express
+    return new Promise<void>((resolve) => {
+        app(req, res as any, () => {
+            resolve();
+        });
+
+        res.on('finish', () => {
+            resolve();
+        });
+    });
+};
