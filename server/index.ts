@@ -1,120 +1,371 @@
-import { VercelRequest, VercelResponse } from "@vercel/node";
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import dotenv from "dotenv";
+import express, { type Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import { body, validationResult } from 'express-validator';
+import dotenv from 'dotenv';
+import { db } from './db';
+import { users, streaks, tasks, sessions, goals } from './db/schema';
+import { eq, and } from 'drizzle-orm';
 
 dotenv.config();
 
 const app = express();
 
-// --- Set up CORS headers helper ---
-const setCorsHeaders = (req: Request, res: Response) => {
-    const origin = req.headers.origin;
+// =================== TYPES ===================
+interface AuthRequest extends Request {
+    userId?: number;
+}
 
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} from ${origin || 'no-origin'}`);
+// =================== AUTH MIDDLEWARE ===================
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-    const isAllowed = origin && (
-        origin.endsWith('.vercel.app') ||
-        origin.includes('localhost') ||
-        origin === process.env.CLIENT_URL
-    );
+function generateToken(userId: number): string {
+    return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '30d' });
+}
 
-    if (isAllowed) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-        res.setHeader('Access-Control-Max-Age', '86400');
-        console.log(`✅ CORS headers set for: ${origin}`);
-        return true;
-    } else {
-        console.log(`❌ Origin not allowed: ${origin}`);
-        return false;
+function authenticateToken(req: AuthRequest, res: Response, next: NextFunction) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader?.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
     }
-};
 
-// --- CORS Middleware ---
-app.use((req, res, next) => {
-    setCorsHeaders(req, res);
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET) as { userId: number };
+        req.userId = decoded.userId;
+        next();
+    } catch {
+        res.status(403).json({ error: 'Invalid token' });
+    }
+}
 
-    if (req.method === 'OPTIONS') return res.status(204).end();
-
-    next();
-});
-
+// =================== MIDDLEWARE SETUP ===================
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// CORS
 app.use((req, res, next) => {
-    const originalSend = res.send;
-    const originalJson = res.json;
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        process.env.CLIENT_URL,
+    ].filter(Boolean);
 
-    res.send = function(data) {
-        setCorsHeaders(req, res);
-        return originalSend.call(this, data);
-    };
+    if (allowedOrigins.includes(origin || '')) {
+        res.setHeader('Access-Control-Allow-Origin', origin!);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    }
 
-    res.json = function(data) {
-        setCorsHeaders(req, res);
-        return originalJson.call(this, data);
-    };
-
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
 });
 
+// Logging
 app.use((req, res, next) => {
-    const start = Date.now();
-    const path = req.path;
+    console.log(`${req.method} ${req.path}`);
+    next();
+});
 
-    res.on("finish", () => {
-        const duration = Date.now() - start;
-        if (path.startsWith("/api") || path === "/health") {
-            console.log(`${req.method} ${path} ${res.statusCode} in ${duration}ms`);
+// =================== HEALTH CHECK ===================
+app.get('/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// =================== AUTH ROUTES ===================
+const registerValidation = [
+    body('email').isEmail().normalizeEmail(),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('name').optional().trim(),
+];
+
+const loginValidation = [
+    body('email').isEmail().normalizeEmail(),
+    body('password').exists(),
+];
+
+app.post('/api/auth/register', registerValidation, async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
         }
-    });
 
-    next();
+        const { email, password, name } = req.body;
+        const existing = await db.select().from(users).where(eq(users.email, email));
+
+        if (existing.length > 0) {
+            return res.status(400).json({ error: 'Email already exists' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const [newUser] = await db
+            .insert(users)
+            .values({ email, password: hashedPassword, name: name || '' })
+            .returning();
+
+        await db.insert(streaks).values({
+            userId: newUser.id,
+            currentStreak: 0,
+            longestStreak: 0,
+            lastActiveDate: null,
+        });
+
+        const token = generateToken(newUser.id);
+        res.status(201).json({
+            message: 'User registered successfully',
+            token,
+            user: { id: newUser.id, email: newUser.email, name: newUser.name },
+        });
+    } catch (error) {
+        console.error('Register error:', error);
+        res.status(500).json({ error: 'Registration failed' });
+    }
 });
 
-registerRoutes(app);
+app.post('/api/auth/login', loginValidation, async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
 
-// Debug: Log all registered routes
-app.use((req, res, next) => {
-    console.log(`🔍 Request received: ${req.method} ${req.path}`);
-    next();
+        const { email, password } = req.body;
+        const [user] = await db.select().from(users).where(eq(users.email, email));
+
+        if (!user || !(await bcrypt.compare(password, user.password))) {
+            return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        const token = generateToken(user.id);
+        res.json({
+            message: 'Login successful',
+            token,
+            user: { id: user.id, email: user.email, name: user.name },
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login failed' });
+    }
 });
 
-// 404 handler
+app.get('/api/auth/me', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const [user] = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, req.userId!));
+
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json({ user });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch user' });
+    }
+});
+
+app.patch('/api/auth/me', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { name } = req.body;
+        const [updated] = await db
+            .update(users)
+            .set({ name, updatedAt: new Date() })
+            .where(eq(users.id, req.userId!))
+            .returning();
+
+        res.json({ user: updated });
+    } catch (error) {
+        res.status(500).json({ error: 'Update failed' });
+    }
+});
+
+// =================== TASKS ROUTES ===================
+app.get('/api/tasks', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const userTasks = await db
+            .select()
+            .from(tasks)
+            .where(eq(tasks.userId, req.userId!));
+        res.json(userTasks);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch tasks' });
+    }
+});
+
+app.post('/api/tasks', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { text, priority } = req.body;
+        if (!text) return res.status(400).json({ error: 'Text is required' });
+
+        const [newTask] = await db
+            .insert(tasks)
+            .values({ userId: req.userId!, text, priority: priority || 'medium' })
+            .returning();
+
+        res.status(201).json(newTask);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create task' });
+    }
+});
+
+app.patch('/api/tasks/:id', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { text, completed, priority } = req.body;
+        const [updated] = await db
+            .update(tasks)
+            .set({
+                text,
+                completed,
+                priority,
+                completedAt: completed ? new Date() : null,
+            })
+            .where(and(eq(tasks.id, parseInt(req.params.id)), eq(tasks.userId, req.userId!)))
+            .returning();
+
+        if (!updated) return res.status(404).json({ error: 'Task not found' });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update task' });
+    }
+});
+
+app.delete('/api/tasks/:id', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        await db
+            .delete(tasks)
+            .where(and(eq(tasks.id, parseInt(req.params.id)), eq(tasks.userId, req.userId!)));
+        res.json({ message: 'Task deleted' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete task' });
+    }
+});
+
+// =================== SESSIONS ROUTES ===================
+app.get('/api/sessions', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const userSessions = await db
+            .select()
+            .from(sessions)
+            .where(eq(sessions.userId, req.userId!));
+        res.json(userSessions);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch sessions' });
+    }
+});
+
+app.post('/api/sessions', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { type, duration, date, time, taskId } = req.body;
+        if (!type || !duration || !date) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const [newSession] = await db
+            .insert(sessions)
+            .values({ userId: req.userId!, type, duration, date, time, taskId })
+            .returning();
+
+        res.status(201).json(newSession);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create session' });
+    }
+});
+
+// =================== GOALS ROUTES ===================
+app.get('/api/goals', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const userGoals = await db
+            .select()
+            .from(goals)
+            .where(eq(goals.userId, req.userId!));
+        res.json(userGoals);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch goals' });
+    }
+});
+
+app.post('/api/goals', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { type, target, metric, period } = req.body;
+        if (!type || !target || !metric || !period) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const [newGoal] = await db
+            .insert(goals)
+            .values({ userId: req.userId!, type, target, metric, period })
+            .returning();
+
+        res.status(201).json(newGoal);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create goal' });
+    }
+});
+
+app.patch('/api/goals/:id', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { achieved } = req.body;
+        const [updated] = await db
+            .update(goals)
+            .set({ achieved })
+            .where(and(eq(goals.id, parseInt(req.params.id)), eq(goals.userId, req.userId!)))
+            .returning();
+
+        if (!updated) return res.status(404).json({ error: 'Goal not found' });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update goal' });
+    }
+});
+
+// =================== STREAKS ROUTES ===================
+app.get('/api/streaks', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const [userStreak] = await db
+            .select()
+            .from(streaks)
+            .where(eq(streaks.userId, req.userId!));
+
+        if (!userStreak) return res.status(404).json({ error: 'Streak not found' });
+        res.json(userStreak);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch streak' });
+    }
+});
+
+app.patch('/api/streaks', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { currentStreak, longestStreak, lastActiveDate } = req.body;
+        const [updated] = await db
+            .update(streaks)
+            .set({ currentStreak, longestStreak, lastActiveDate, updatedAt: new Date() })
+            .where(eq(streaks.userId, req.userId!))
+            .returning();
+
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update streak' });
+    }
+});
+
+// =================== ERROR HANDLING ===================
 app.use((req, res) => {
-    console.warn(`⚠️ No route found for: ${req.method} ${req.path}`);
-    res.status(404).json({ message: 'Route not found', path: req.path, method: req.method });
+    res.status(404).json({ error: 'Route not found' });
 });
 
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-    setCorsHeaders(req, res);
-
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    console.error('❗ Error:', { status, message, path: req.path, method: req.method });
-
-    res.status(status).json({
-        message,
-        ...(process.env.NODE_ENV === 'development' && { error: err.toString() })
+    console.error('Error:', err);
+    res.status(err.status || 500).json({
+        error: err.message || 'Internal server error',
     });
 });
 
-// --- Wrap Express app for Vercel ---
-// This is the critical fix - handle the request properly
-export default async (req: VercelRequest, res: VercelResponse) => {
-    // Handle the request through Express
-    return new Promise<void>((resolve) => {
-        app(req, res as any, () => {
-            resolve();
-        });
+// =================== START SERVER ===================
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+    console.log(`✅ Server running on port ${PORT}`);
+});
 
-        res.on('finish', () => {
-            resolve();
-        });
-    });
-};
+export default app;
