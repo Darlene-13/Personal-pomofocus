@@ -6,21 +6,25 @@ import { eq } from 'drizzle-orm';
 
 const router = express.Router();
 
-// Get user streak
+// GET /streak - Get user streak
 router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     try {
+        const userId = req.userId!;
         let userStreak = await db
             .select()
             .from(streaks)
-            .where(eq(streaks.userId, req.userId!));
+            .where(eq(streaks.userId, userId));
 
         if (userStreak.length === 0) {
             // Create initial streak
-            const [newStreak] = await db.insert(streaks).values({
-                userId: req.userId!,
-                currentStreak: 0,
-                longestStreak: 0,
-            }).returning();
+            const [newStreak] = await db
+                .insert(streaks)
+                .values({
+                    userId,
+                    current_streak: 0,
+                    longest_streak: 0,
+                })
+                .returning();
 
             userStreak = [newStreak];
         }
@@ -32,40 +36,43 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     }
 });
 
-// Update streak (call this after each session)
+// POST /streak/update - Update streak after a session
 router.post('/update', authenticateToken, async (req: AuthRequest, res) => {
     try {
+        const userId = req.userId!;
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
         const userStreakArr = await db
             .select()
             .from(streaks)
-            .where(eq(streaks.userId, req.userId!));
+            .where(eq(streaks.userId, userId));
 
-        if (userStreakArr.length === 0) return res.status(404).json({ error: 'User streak not found' });
+        if (userStreakArr.length === 0) {
+            return res.status(404).json({ error: 'User streak not found' });
+        }
 
         const userStreak = userStreakArr[0];
-        const lastActiveDate = userStreak.lastActiveDate;
-        let newStreak = userStreak.currentStreak;
+        const lastActive = userStreak.last_active_date; // match schema
+        let newStreak = userStreak.current_streak;
 
-        if (lastActiveDate === yesterday) {
+        if (lastActive === yesterday) {
             newStreak += 1;
-        } else if (lastActiveDate !== today) {
+        } else if (lastActive !== today) {
             newStreak = 1;
         }
 
-        const longestStreak = Math.max(newStreak, userStreak.longestStreak);
+        const longestStreak = Math.max(newStreak, userStreak.longest_streak);
 
         const [updated] = await db
             .update(streaks)
             .set({
-                currentStreak: newStreak,
-                longestStreak,
-                lastActiveDate: today,
-                updated_at: new Date(), // match DB column name
+                current_streak: newStreak,
+                longest_streak: longestStreak,
+                last_active_date: today,
+                updated_at: new Date(),
             })
-            .where(eq(streaks.userId, req.userId!))
+            .where(eq(streaks.userId, userId))
             .returning();
 
         res.json(updated);

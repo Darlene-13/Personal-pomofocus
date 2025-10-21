@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import { db } from '../db';
-import { users } from '@shared/schema';
+import { users } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { generateToken, authenticateToken, AuthRequest } from '../middleware/auth';
 import { body, validationResult } from 'express-validator';
