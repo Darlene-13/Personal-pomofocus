@@ -16,7 +16,12 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
     const [theme, setThemeState] = useState<Theme>(() => {
         const saved = localStorage.getItem("pomodoro-theme");
-        return (saved as Theme) || "purple";
+        // Validate that the saved theme exists in themeConfigs
+        if (saved && themeConfigs[saved as Theme]) {
+            return saved as Theme;
+        }
+        // Return first available theme as fallback
+        return (Object.keys(themeConfigs)[0] as Theme) || "purple";
     });
 
     const [colorMode, setColorMode] = useState<ColorMode>(() => {
@@ -26,6 +31,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const config = themeConfigs[theme];
+
+        // Add safety check - if config doesn't exist, use default
+        if (!config) {
+            console.error(`Theme "${theme}" not found in themeConfigs`);
+            // Use first available theme as fallback
+            const fallbackTheme = Object.keys(themeConfigs)[0] as Theme;
+            if (fallbackTheme) {
+                setThemeState(fallbackTheme);
+            }
+            return;
+        }
+
         const root = document.documentElement;
 
         // Apply theme colors
@@ -35,9 +52,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         root.style.setProperty("--sidebar-ring", config.primary);
         root.style.setProperty("--accent", config.accent);
 
-        config.chartColors.forEach((color, index) => {
-            root.style.setProperty(`--chart-${index + 1}`, color);
-        });
+        if (config.chartColors) {
+            config.chartColors.forEach((color, index) => {
+                root.style.setProperty(`--chart-${index + 1}`, color);
+            });
+        }
 
         localStorage.setItem("pomodoro-theme", theme);
     }, [theme]);
@@ -53,7 +72,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }, [colorMode]);
 
     const setTheme = (newTheme: Theme) => {
-        setThemeState(newTheme);
+        // Validate theme exists before setting
+        if (themeConfigs[newTheme]) {
+            setThemeState(newTheme);
+        } else {
+            console.error(`Theme "${newTheme}" not found in themeConfigs`);
+        }
     };
 
     const toggleColorMode = () => {
