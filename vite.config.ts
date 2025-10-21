@@ -19,7 +19,8 @@ export default defineConfig({
     },
     root: path.resolve(__dirname, "client"), // Frontend root directory
     build: {
-        outDir: path.resolve(__dirname, "dist/public"), // Build output
+        // --- THIS IS THE CORRECTED LINE ---
+        outDir: path.resolve(__dirname, "dist"), // Build to 'dist' not 'dist/public'
         emptyOutDir: true, // Clean build directory before rebuilding
     },
     server: {
@@ -28,7 +29,7 @@ export default defineConfig({
         port: 5173,  // Custom dev server port
         host: true,  // Allow external connections
         proxy: {
-            // Redirect API calls to backend Express server
+            // Redirect API calls to backend Express server (Vercel ignores this)
             "/api": {
                 target: "http://localhost:5000",
                 changeOrigin: true,
