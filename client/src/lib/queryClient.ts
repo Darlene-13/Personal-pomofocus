@@ -1,25 +1,16 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// --- REMOVE THIS LINE ---
-// const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 async function throwIfResNotOk(res: Response) {
     if (!res.ok) {
-        // Attempt to parse error, provide fallback
-        let errorData = { message: `HTTP error! status: ${res.status}` };
-        try {
-            const text = await res.text();
-            errorData.message = `${res.status}: ${text || res.statusText}`;
-        } catch (e) {
-            // Ignore error if text parsing fails
-        }
-        throw new Error(errorData.message);
+        const text = (await res.text()) || res.statusText;
+        throw new Error(`${res.status}: ${text}`);
     }
 }
 
 /**
- * General API request helper (Not typically used directly by React Query's default queryFn)
- * If you DO use this for mutations, it needs to use relative paths.
+ * General API request helper
  */
 export async function apiRequest(
     method: string,
@@ -28,32 +19,24 @@ export async function apiRequest(
     extraHeaders?: Record<string, string>
 ): Promise<any> {
 
-    // --- USE RELATIVE PATH ---
-    const res = await fetch(url, { // Use 'url' directly
+    // --- UPDATE THIS LINE ---
+    // Prepend the BASE_URL to the url
+    const res = await fetch(`${BASE_URL}${url}`, {
         method,
         headers: {
             ...(data ? { "Content-Type": "application/json" } : {}),
             ...extraHeaders,
-            // Include Authorization header if needed, similar to authRequest
-            // Example: ...(getAuthToken() ? { 'Authorization': `Bearer ${getAuthToken()}` } : {})
         },
         body: data ? JSON.stringify(data) : undefined,
-        credentials: "include", // Include cookies/auth headers if needed
+        credentials: "include", // still include cookies if needed
     });
 
-    // Use the error helper
-    await throwIfResNotOk(res);
-
-    // Handle empty responses
-    if (res.status === 204) {
-        return null;
-    }
-    const contentType = res.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-        return res.json();
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`${res.status}: ${text}`);
     }
 
-    return null; // Or handle other content types if necessary
+    return res.json();
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -66,31 +49,16 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
     ({ on401: unauthorizedBehavior }) =>
         async ({ queryKey }) => {
-            // --- USE RELATIVE PATH FROM queryKey ---
-            // Ensure queryKey includes the full path, e.g., ["/api/tasks"]
-            const url = queryKey.join("/");
-            const res = await fetch(url, {
-                credentials: "include",
-                // Include Authorization header if needed for GET requests
-                // headers: { ...(getAuthToken() ? { 'Authorization': `Bearer ${getAuthToken()}` } : {}) }
-            });
+            // This was already correct
+            const url = `${BASE_URL}${queryKey.join("/")}`;
+            const res = await fetch(url, { credentials: "include" });
 
             if (unauthorizedBehavior === "returnNull" && res.status === 401) {
                 return null;
             }
 
             await throwIfResNotOk(res);
-
-            // Handle empty responses
-            if (res.status === 204) {
-                return null;
-            }
-            const contentType = res.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-                return res.json();
-            }
-
-            return null; // Or handle other content types
+            return res.json();
         };
 
 /**
@@ -106,11 +74,7 @@ export const queryClient = new QueryClient({
             retry: false,
         },
         mutations: {
-            // If using apiRequest for mutations, ensure it sends auth tokens
             retry: false,
         },
     },
 });
-
-// You might need to import getAuthToken here if using Authorization headers
-// import { getAuthToken } from './auth';
