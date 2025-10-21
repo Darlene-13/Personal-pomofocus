@@ -9,12 +9,33 @@ dotenv.config();
 const app = express();
 
 // --- CORS Configuration ---
-// Reads the allowed frontend URL from Vercel Environment Variables
-const allowedOrigin = process.env.CLIENT_URL;
-app.use(cors({
-    origin: allowedOrigin, // Use the specific origin from CLIENT_URL
-    credentials: true      // Allow cookies/auth headers if needed
-}));
+const corsOptions = {
+    origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+        // Allow requests with no origin (like mobile apps, Postman, or curl requests)
+        if (!origin) return callback(null, true);
+
+        // Allow all Vercel deployments and localhost for development
+        if (
+            origin.endsWith('.vercel.app') ||
+            origin === 'http://localhost:3000' ||
+            origin === 'http://localhost:5173' || // Vite default port
+            origin === process.env.CLIENT_URL
+        ) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true, // Allow cookies/auth headers
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie']
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
 
 // --- Body Parsing Middleware ---
 app.use(express.json()); // For JSON request bodies
