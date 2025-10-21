@@ -11,5 +11,5 @@
     "moduleResolution": "node"
   },
   "include": ["server/**/*"],
-  "exclude": ["node_modules", "dist", "client"]
+  "exclude": ["node_modules", "dist", "client", "vite.config.ts"]
 }
