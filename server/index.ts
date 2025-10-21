@@ -10,6 +10,12 @@ import { eq, and } from 'drizzle-orm';
 
 dotenv.config();
 
+
+// =================== FIX FOR ES MODULES ===================
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 
 // =================== TYPES ===================
