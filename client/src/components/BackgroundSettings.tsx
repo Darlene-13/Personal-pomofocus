@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Settings, Image, Clock } from 'lucide-react';
+import React, {useState} from 'react';
+import {Settings, Image, Clock} from 'lucide-react';
 
 interface BackgroundSettingsProps {
-    opacity: number;
-    onOpacityChange: (opacity: number) => void;
-    changeInterval: number;
-    onIntervalChange: (interval: number) => void;
+    opacity: number,
+    onOpacityChange: (opacity: number) => void,
+    changeInterval: number,
+    onIntervalChange: (interval: number) => void,
+    interval?: number
 }
 
 export const BackgroundSettings: React.FC<BackgroundSettingsProps> = ({
@@ -13,6 +14,7 @@ export const BackgroundSettings: React.FC<BackgroundSettingsProps> = ({
                                                                           onOpacityChange,
                                                                           changeInterval,
                                                                           onIntervalChange,
+                                                                          interval
                                                                       }) => {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -22,7 +24,7 @@ export const BackgroundSettings: React.FC<BackgroundSettingsProps> = ({
                 onClick={() => setIsOpen(!isOpen)}
                 className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-all"
             >
-                <Settings className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                <Settings className="w-5 h-5 text-gray-700 dark:text-gray-300"/>
             </button>
 
             {isOpen && (
@@ -34,7 +36,7 @@ export const BackgroundSettings: React.FC<BackgroundSettingsProps> = ({
                     {/* Opacity Control */}
                     <div className="mb-4">
                         <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 mb-2">
-                            <Image size={16} />
+                            <Image size={16}/>
                             Background Opacity
                         </label>
                         <input
@@ -51,7 +53,7 @@ export const BackgroundSettings: React.FC<BackgroundSettingsProps> = ({
                     {/* Change Interval */}
                     <div className="mb-4">
                         <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 mb-2">
-                            <Clock size={16} />
+                            <Clock size={16}/>
                             Change Every
                         </label>
                         <select

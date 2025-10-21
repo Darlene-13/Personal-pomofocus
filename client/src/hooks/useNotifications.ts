@@ -28,7 +28,7 @@ export const useNotifications = () => {
         }
     };
 
-    const notifySessionComplete = (isBreak: boolean) => {
+    const notifySessionComplete = (isBreak: string) => {
         sendNotification(
             isBreak ? 'Break time! 🎉' : 'Work session complete! ✅',
             {
