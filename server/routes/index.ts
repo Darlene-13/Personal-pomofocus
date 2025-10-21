@@ -1,10 +1,10 @@
 import type { Express } from 'express';
 
-import authRoutes from './routes/auth';
-import tasksRoutes from './routes/tasks';
-import sessionsRoutes from './routes/session';
-import streaksRoutes from './routes/streak';
-import goalsRoutes from './routes/goals';
+import authRoutes from './auth.ts';
+import tasksRoutes from './tasks.ts';
+import sessionsRoutes from './session.ts';
+import streaksRoutes from './streak.ts';
+import goalsRoutes from './goals.ts';
 
 export function registerRoutes(app: Express): void {
     // Health check endpoint
