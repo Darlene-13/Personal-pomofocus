@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from "wouter";
 import { setAuthToken, publicRequest } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, LogIn, UserPlus } from "lucide-react";
 
 export default function Login() {
-    const navigate = useNavigate();
+    const [, setLocation] = useLocation();
     const { toast } = useToast();
 
     const [isLogin, setIsLogin] = useState(true);
@@ -36,7 +36,7 @@ export default function Login() {
                     title: "Success!",
                     description: isLogin ? "Welcome back!" : "Account created successfully!",
                 });
-                navigate("/");
+                setLocation("/");
             }
         } catch (error: any) {
             toast({
@@ -53,7 +53,7 @@ export default function Login() {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
             <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
 
-            <Card className="w-full max-w-md p-8 space-y-6 shadow-2xl relative overflow-hidden">
+            <Card className="w-full max-w-md p-8 space-y-6 shadow-2xl relative overflow-hidden bg-card text-card-foreground">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-purple-400 to-blue-500 rounded-full filter blur-3xl opacity-20 -translate-y-1/2 translate-x-1/2"></div>
                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-gradient-to-tr from-pink-400 to-purple-500 rounded-full filter blur-3xl opacity-20 translate-y-1/2 -translate-x-1/2"></div>
 
@@ -70,38 +70,38 @@ export default function Login() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {!isLogin && (
                             <div>
-                                <label className="block text-sm font-medium mb-2">Name</label>
+                                <label className="block text-sm font-medium mb-2 text-foreground">Name</label>
                                 <input
                                     type="text"
                                     required={!isLogin}
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                    className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                     placeholder="Your name"
                                 />
                             </div>
                         )}
 
                         <div>
-                            <label className="block text-sm font-medium mb-2">Email</label>
+                            <label className="block text-sm font-medium mb-2 text-foreground">Email</label>
                             <input
                                 type="email"
                                 required
                                 value={formData.email}
                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 placeholder="you@example.com"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium mb-2">Password</label>
+                            <label className="block text-sm font-medium mb-2 text-foreground">Password</label>
                             <input
                                 type="password"
                                 required
                                 value={formData.password}
                                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                                className="w-full px-4 py-3 rounded-lg border border-input bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                 placeholder="••••••••"
                                 minLength={6}
                             />
@@ -152,7 +152,7 @@ export default function Login() {
                         </button>
                     </div>
 
-                    <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                    <div className="mt-8 pt-6 border-t border-border">
                         <p className="text-xs text-center text-muted-foreground">
                             By continuing, you agree to Focus Flow's Terms of Service and Privacy Policy
                         </p>

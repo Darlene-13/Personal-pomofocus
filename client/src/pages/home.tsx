@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Settings, Timer as TimerIcon, ListTodo, BarChart3, Moon, Sun } from "lucide-react";
+import { Settings, Timer as TimerIcon, ListTodo, BarChart3, Moon, Sun, LogIn, LogOut } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter"; // Changed from react-router-dom
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TimerDisplay } from "@/components/TimerDisplay";
@@ -17,10 +18,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { MusicEngine, playTimerAlarm } from "@/lib/audio";
 import { useNotifications } from "@/hooks/useNotifications";
+import { getAuthToken, removeAuthToken } from "@/lib/auth";
 
 type Tab = "timer" | "tasks" | "analytics";
 
 export default function Home() {
+    const [location, setLocation] = useLocation(); // Changed from useNavigate
     const { theme, setTheme, colorMode, toggleColorMode } = useTheme();
     const { toast } = useToast();
     const { notifySessionComplete, requestPermission } = useNotifications();
@@ -33,7 +36,7 @@ export default function Home() {
     });
     const [backgroundInterval, setBackgroundInterval] = useState(() => {
         const saved = localStorage.getItem("pomodoro-bg-interval");
-        return saved ? Number(saved) : 300000; // 5 minutes
+        return saved ? Number(saved) : 300000;
     });
 
     const [workDuration, setWorkDuration] = useState(() => {
@@ -63,6 +66,9 @@ export default function Home() {
 
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const musicEngineRef = useRef<any>(null);
+
+    // Check if user is logged in
+    const isLoggedIn = !!getAuthToken();
 
     const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
         queryKey: ["/api/tasks"],
@@ -137,7 +143,6 @@ export default function Home() {
         },
     });
 
-    // Request notification permission on mount
     useEffect(() => {
         requestPermission();
     }, [requestPermission]);
@@ -220,7 +225,6 @@ export default function Home() {
     const handleSessionComplete = () => {
         const now = new Date();
         const date = now.toISOString().split("T")[0];
-        const time = now.toTimeString().split(" ")[0]; // HH:MM:SS
 
         createSessionMutation.mutate({
             date,
@@ -290,6 +294,15 @@ export default function Home() {
         deleteTaskMutation.mutate(id);
     };
 
+    const handleLogout = () => {
+        removeAuthToken();
+        toast({
+            title: "Logged out",
+            description: "You have been logged out successfully.",
+        });
+        setLocation("/login"); // Changed from navigate
+    };
+
     const currentQuote = motivationalQuotes[quoteIndex];
 
     const completedTasks = tasks.filter((t) => t.completed).length;
@@ -317,7 +330,9 @@ export default function Home() {
         >
             <BackgroundSettings
                 opacity={backgroundOpacity}
-                interval={backgroundInterval}
+                onOpacityChange={setBackgroundOpacity}
+                changeInterval={backgroundInterval}
+                onIntervalChange={setBackgroundInterval}
             />
 
             <div className="absolute inset-0 opacity-5"
@@ -328,10 +343,10 @@ export default function Home() {
             />
 
             <div className="relative z-10">
-                <header className="border-b border-border backdrop-blur-sm bg-background/80 sticky top-0 z-30">
+                <header className="border-b border-border backdrop-blur-sm bg-background/95 sticky top-0 z-30 shadow-sm">
                     <div className="container mx-auto px-4 py-4">
                         <div className="flex items-center justify-between">
-                            <h1 className="text-3xl font-bold font-accent" data-testid="text-app-title">
+                            <h1 className="text-3xl font-bold font-accent text-foreground" data-testid="text-app-title">
                                 Focus Flow
                             </h1>
 
@@ -340,6 +355,7 @@ export default function Home() {
                                     variant={activeTab === "timer" ? "default" : "ghost"}
                                     onClick={() => setActiveTab("timer")}
                                     data-testid="button-tab-timer"
+                                    className="text-foreground"
                                 >
                                     <TimerIcon className="w-4 h-4 mr-2" />
                                     Timer
@@ -348,6 +364,7 @@ export default function Home() {
                                     variant={activeTab === "tasks" ? "default" : "ghost"}
                                     onClick={() => setActiveTab("tasks")}
                                     data-testid="button-tab-tasks"
+                                    className="text-foreground"
                                 >
                                     <ListTodo className="w-4 h-4 mr-2" />
                                     Tasks
@@ -356,6 +373,7 @@ export default function Home() {
                                     variant={activeTab === "analytics" ? "default" : "ghost"}
                                     onClick={() => setActiveTab("analytics")}
                                     data-testid="button-tab-analytics"
+                                    className="text-foreground"
                                 >
                                     <BarChart3 className="w-4 h-4 mr-2" />
                                     Analytics
@@ -365,14 +383,39 @@ export default function Home() {
                                     variant="ghost"
                                     onClick={toggleColorMode}
                                     data-testid="button-color-mode"
+                                    className="text-foreground hover:bg-accent"
                                 >
                                     {colorMode === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                                 </Button>
+
+                                {isLoggedIn ? (
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={handleLogout}
+                                        title="Logout"
+                                        className="text-foreground hover:bg-accent"
+                                    >
+                                        <LogOut className="w-5 h-5" />
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        onClick={() => setLocation("/login")} // Changed from navigate
+                                        title="Login"
+                                        className="text-foreground hover:bg-accent"
+                                    >
+                                        <LogIn className="w-5 h-5" />
+                                    </Button>
+                                )}
+
                                 <Button
                                     size="icon"
                                     variant="ghost"
                                     onClick={() => setSettingsOpen(true)}
                                     data-testid="button-settings"
+                                    className="text-foreground hover:bg-accent"
                                 >
                                     <Settings className="w-5 h-5" />
                                 </Button>
@@ -384,26 +427,26 @@ export default function Home() {
                 <main className="container mx-auto px-4 py-8">
                     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr_320px] gap-8">
                         <aside className="space-y-6">
-                            <Card className="p-6">
+                            <Card className="p-6 bg-card text-card-foreground">
                                 <h3 className="text-lg font-semibold mb-4">Quick Stats</h3>
                                 <div className="space-y-3">
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-muted-foreground">Total Tasks</span>
                                         <span className="font-semibold" data-testid="text-quick-stat-total-tasks">
-                      {tasks.length}
-                    </span>
+                                            {tasks.length}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-muted-foreground">Completed</span>
                                         <span className="font-semibold text-green-500" data-testid="text-quick-stat-completed">
-                      {completedTasks}
-                    </span>
+                                            {completedTasks}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm text-muted-foreground">Sessions Today</span>
                                         <span className="font-semibold" data-testid="text-quick-stat-sessions">
-                      {todaySessions.length}
-                    </span>
+                                            {todaySessions.length}
+                                        </span>
                                     </div>
                                 </div>
                             </Card>
@@ -458,7 +501,7 @@ export default function Home() {
                                 />
                             )}
 
-                            <Card className="p-6">
+                            <Card className="p-6 bg-card text-card-foreground">
                                 <h3 className="text-lg font-semibold mb-4">Current Task</h3>
                                 {tasks.length === 0 ? (
                                     <p className="text-sm text-muted-foreground">No tasks yet</p>

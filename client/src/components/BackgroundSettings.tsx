@@ -1,12 +1,11 @@
-import React, {useState} from 'react';
-import {Settings, Image, Clock} from 'lucide-react';
+import React, { useState } from 'react';
+import { Settings, Image, Clock } from 'lucide-react';
 
 interface BackgroundSettingsProps {
-    opacity: number,
-    onOpacityChange: (opacity: number) => void,
-    changeInterval: number,
-    onIntervalChange: (interval: number) => void,
-    interval?: number
+    opacity: number;
+    onOpacityChange: (opacity: number) => void;
+    changeInterval: number;
+    onIntervalChange: (interval: number) => void;
 }
 
 export const BackgroundSettings: React.FC<BackgroundSettingsProps> = ({
@@ -14,7 +13,6 @@ export const BackgroundSettings: React.FC<BackgroundSettingsProps> = ({
                                                                           onOpacityChange,
                                                                           changeInterval,
                                                                           onIntervalChange,
-                                                                          interval
                                                                       }) => {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -22,21 +20,23 @@ export const BackgroundSettings: React.FC<BackgroundSettingsProps> = ({
         <div className="fixed bottom-6 left-6 z-50">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-all"
+                className="p-3 bg-card text-card-foreground rounded-full shadow-lg hover:shadow-xl transition-all border border-border"
+                title="Background Settings"
             >
-                <Settings className="w-5 h-5 text-gray-700 dark:text-gray-300"/>
+                <Settings className="w-5 h-5" />
             </button>
 
             {isOpen && (
-                <div className="absolute bottom-16 left-0 w-80 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-xl">
-                    <h3 className="font-semibold mb-4 text-gray-800 dark:text-white">
+                <div className="absolute bottom-16 left-0 w-80 p-4 bg-card text-card-foreground rounded-lg shadow-xl border border-border">
+                    <h3 className="font-semibold mb-4 flex items-center gap-2">
+                        <Settings className="w-4 h-4" />
                         Background Settings
                     </h3>
 
                     {/* Opacity Control */}
                     <div className="mb-4">
-                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 mb-2">
-                            <Image size={16}/>
+                        <label className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <Image size={16} />
                             Background Opacity
                         </label>
                         <input
@@ -45,21 +45,21 @@ export const BackgroundSettings: React.FC<BackgroundSettingsProps> = ({
                             max="100"
                             value={opacity * 100}
                             onChange={(e) => onOpacityChange(Number(e.target.value) / 100)}
-                            className="w-full"
+                            className="w-full accent-primary"
                         />
-                        <span className="text-xs text-gray-500">{Math.round(opacity * 100)}%</span>
+                        <span className="text-xs text-muted-foreground">{Math.round(opacity * 100)}%</span>
                     </div>
 
                     {/* Change Interval */}
                     <div className="mb-4">
-                        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 mb-2">
-                            <Clock size={16}/>
+                        <label className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <Clock size={16} />
                             Change Every
                         </label>
                         <select
                             value={changeInterval}
                             onChange={(e) => onIntervalChange(Number(e.target.value))}
-                            className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                            className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-transparent"
                         >
                             <option value={60000}>1 minute</option>
                             <option value={300000}>5 minutes</option>
