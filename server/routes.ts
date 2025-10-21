@@ -1,5 +1,4 @@
 import type { Express } from 'express';
-import { createServer, type Server } from 'http';
 
 import authRoutes from './routes/auth';
 import tasksRoutes from './routes/tasks';
@@ -7,7 +6,7 @@ import sessionsRoutes from './routes/session';
 import streaksRoutes from './routes/streak';
 import goalsRoutes from './routes/goals';
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export function registerRoutes(app: Express): void {
     // Health check endpoint
     app.get('/health', (req, res) => {
         res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -28,21 +27,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Goals routes
     app.use('/api/goals', goalsRoutes);
 
-    // 404 handler
+    // 404 handler - must be after all other routes
     app.use((req, res) => {
         res.status(404).json({ error: 'Route not found' });
     });
-
-    // Error handler
-    app.use((err: any, req: any, res: any, next: any) => {
-        console.error('Error:', err);
-        res.status(err.status || 500).json({
-            error: err.message || 'Internal server error',
-            ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
-        });
-    });
-
-    const httpServer = createServer(app);
-
-    return httpServer;
 }

@@ -1,93 +1,114 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes"; // Make sure path is correct
-import cors from "cors";
+import { registerRoutes } from "./routes";
 import dotenv from "dotenv";
 
-// Load environment variables
 dotenv.config();
 
 const app = express();
 
-// --- CORS Configuration ---
-const corsOptions = {
-    origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-        // Allow requests with no origin (like mobile apps, Postman, or curl requests)
-        if (!origin) return callback(null, true);
+// --- Set up CORS headers helper ---
+const setCorsHeaders = (req: Request, res: Response) => {
+    const origin = req.headers.origin;
 
-        // Allow all Vercel deployments and localhost for development
-        if (
-            origin.endsWith('.vercel.app') ||
-            origin === 'http://localhost:3000' ||
-            origin === 'http://localhost:5173' || // Vite default port
-            origin === process.env.CLIENT_URL
-        ) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    credentials: true, // Allow cookies/auth headers
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    exposedHeaders: ['Set-Cookie']
+    // Log every request
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} from ${origin || 'no-origin'}`);
+
+    // Check if origin is allowed
+    const isAllowed = origin && (
+        origin.endsWith('.vercel.app') ||
+        origin.includes('localhost') ||
+        origin === process.env.CLIENT_URL
+    );
+
+    if (isAllowed) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+        res.setHeader('Access-Control-Max-Age', '86400');
+        console.log(`✅ CORS headers set for: ${origin}`);
+        return true;
+    } else {
+        console.log(`❌ Origin not allowed: ${origin}`);
+        return false;
+    }
 };
 
-app.use(cors(corsOptions));
+// --- CORS Middleware (FIRST) ---
+app.use((req, res, next) => {
+    setCorsHeaders(req, res);
 
-// Handle preflight requests explicitly
-app.options('*', cors(corsOptions));
+    // Handle preflight
+    if (req.method === 'OPTIONS') {
+        console.log('✈️ Preflight OPTIONS request handled');
+        return res.status(204).end();
+    }
+
+    next();
+});
 
 // --- Body Parsing Middleware ---
-app.use(express.json()); // For JSON request bodies
-app.use(express.urlencoded({ extended: false })); // For form data (optional)
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-// --- Request Logging Middleware (Optional but recommended) ---
+// --- Additional CORS check before every response ---
+app.use((req, res, next) => {
+    const originalSend = res.send;
+    const originalJson = res.json;
+
+    // Ensure CORS headers are set before sending response
+    res.send = function(data) {
+        setCorsHeaders(req, res);
+        return originalSend.call(this, data);
+    };
+
+    res.json = function(data) {
+        setCorsHeaders(req, res);
+        return originalJson.call(this, data);
+    };
+
+    next();
+});
+
+// --- Request Logging Middleware ---
 app.use((req, res, next) => {
     const start = Date.now();
     const path = req.path;
-    let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
-    // Capture the response body if it's JSON
-    const originalResJson = res.json;
-    res.json = function (bodyJson, ...args) {
-        capturedJsonResponse = bodyJson;
-        return originalResJson.apply(res, [bodyJson, ...args]);
-    };
-
-    // Log after the response is finished
     res.on("finish", () => {
         const duration = Date.now() - start;
-        // Only log API and health check routes
         if (path.startsWith("/api") || path === "/health") {
-            let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-            if (capturedJsonResponse) {
-                logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-            }
-            // Truncate long logs
-            if (logLine.length > 80) {
-                logLine = logLine.slice(0, 79) + "…";
-            }
-            console.log(logLine); // This log appears in Vercel Functions logs
+            console.log(`${req.method} ${path} ${res.statusCode} in ${duration}ms`);
         }
     });
     next();
 });
 
 // --- Register API Routes ---
-// This function adds your /api/auth, /api/tasks, etc. routes to the 'app'
 registerRoutes(app);
 
-// --- Global Error Handling Middleware ---
-// Must be defined AFTER all routes
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+// --- Global Error Handling Middleware (LAST) ---
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+    // Ensure CORS headers even on errors
+    setCorsHeaders(req, res);
+
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error('Error:', err); // Log the full error in Vercel Functions logs
-    res.status(status).json({ message, error: err.toString() });
+    console.error('❗ Error:', {
+        status,
+        message,
+        path: req.path,
+        method: req.method
+    });
+
+    res.status(status).json({
+        message,
+        ...(process.env.NODE_ENV === 'development' && {
+            error: err.toString()
+        })
+    });
 });
 
-// --- Export the app for Vercel ---
-// This is the crucial line for serverless deployment.
-// Remove any server.listen() calls.
+// --- Export for Vercel Serverless ---
 export default app;
