@@ -1,80 +1,71 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, integer, timestamp } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import { pgTable, serial, text, timestamp, boolean, integer, varchar } from 'drizzle-orm/pg-core';
 
-// ================== USERS ==================
-export const users = pgTable("users", {
-    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    email: varchar("email", { length: 255 }).notNull().unique(),
-    name: varchar("name", { length: 255 }).notNull(),
-    password: varchar("password", { length: 255 }).notNull(),
-    createdAt: timestamp("createdAt").defaultNow().notNull(),
+// Users table
+export const users = pgTable('users', {
+    id: serial('id').primaryKey(),
+    email: varchar('email', { length: 255 }).notNull().unique(),
+    password: text('password').notNull(),
+    name: varchar('name', { length: 255 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-    email: true,
-    name: true,
-    password: true,
+// Pomodoro Sessions
+export const sessions = pgTable('sessions', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    type: varchar('type', { length: 20 }).notNull(), // 'work' or 'break'
+    duration: integer('duration').notNull(), // in minutes
+    date: varchar('date', { length: 20 }).notNull(), // ISO date string YYYY-MM-DD
+    time: varchar('time', { length: 20 }), // time string HH:MM:SS
+    taskId: integer('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
+// Tasks
+export const tasks = pgTable('tasks', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    text: text('text').notNull(),
+    completed: boolean('completed').default(false).notNull(),
+    priority: varchar('priority', { length: 20 }).default('medium'), // 'low', 'medium', 'high'
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    completedAt: timestamp('completed_at'),
+});
+
+// Goals
+export const goals = pgTable('goals', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+    type: varchar('type', { length: 20 }).notNull(), // 'daily', 'weekly', 'monthly'
+    target: integer('target').notNull(), // target hours or sessions
+    metric: varchar('metric', { length: 20 }).notNull(), // 'hours' or 'sessions'
+    period: varchar('period', { length: 20 }).notNull(), // date string for the goal period
+    achieved: boolean('achieved').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Streaks
+export const streaks = pgTable('streaks', {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
+    currentStreak: integer('current_streak').default(0).notNull(),
+    longestStreak: integer('longest_streak').default(0).notNull(),
+    lastActiveDate: varchar('last_active_date', { length: 20 }), // ISO date string
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Type exports
 export type User = typeof users.$inferSelect;
-
-
-// ================== TASKS ==================
-export const tasks = pgTable("tasks", {
-    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    text: text("text").notNull(),
-    completed: boolean("completed").notNull().default(false),
-    created_at: timestamp("created_at").notNull().defaultNow(),
-});
-
-export const insertTaskSchema = createInsertSchema(tasks).omit({
-    id: true,
-    created_at: true,
-});
-
-export type InsertTask = z.infer<typeof insertTaskSchema>;
-export type Task = typeof tasks.$inferSelect;
-
-// ================== SESSIONS ==================
-export const sessions = pgTable("sessions", {
-    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    userId: varchar("userId").references(() => users.id).notNull(), // camelCase for router
-    duration: integer("duration").notNull(),
-    sessionDate: varchar("sessionDate", { length: 20 }).notNull(),
-    sessionTime: varchar("sessionTime", { length: 20 }),
-    taskId: varchar("taskId").references(() => tasks.id),
-    createdAt: timestamp("createdAt").notNull().defaultNow(),
-});
-
-export const insertSessionSchema = createInsertSchema(sessions).omit({
-    id: true,
-    createdAt: true,
-});
-
-export type InsertSession = z.infer<typeof insertSessionSchema>;
+export type NewUser = typeof users.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+export type Task = typeof tasks.$inferSelect;
+export type NewTask = typeof tasks.$inferInsert;
+export type Goal = typeof goals.$inferSelect;
+export type NewGoal = typeof goals.$inferInsert;
+export type Streak = typeof streaks.$inferSelect;
+export type NewStreak = typeof streaks.$inferInsert;
 
-
-// ================== STREAKS ==================
-export const streaks = pgTable("streaks", {
-    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-    userId: varchar("user_id").references(() => users.id).notNull(),
-    current_streak: integer("current_streak").default(0).notNull(),
-    longest_streak: integer("longest_streak").default(0).notNull(),
-    last_active_date: varchar("last_active_date", { length: 20 }),
-    updated_at: timestamp("updated_at").defaultNow().notNull(),
-});
-
-// ================== APP SETTINGS / THEME ==================
-export type Theme = "purple" | "blue" | "green" | "pink" | "orange";
-
-export interface AppSettings {
-    workDuration: number;
-    breakDuration: number;
-    theme: Theme;
-    musicGenre: string;
-    volume: number;
-}
+// Theme type
+export type Theme = 'purple' | 'blue' | 'green' | 'orange' | 'pink';

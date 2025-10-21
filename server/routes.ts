@@ -1,79 +1,48 @@
-import type { Express } from "express";
-import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { insertTaskSchema, insertSessionSchema } from "@shared/schema";
+import type { Express } from 'express';
+import { createServer, type Server } from 'http';
+
+import authRoutes from './routes/auth';
+import tasksRoutes from './routes/tasks';
+import sessionsRoutes from './routes/session';
+import streaksRoutes from './routes/streak';
+import goalsRoutes from './routes/goals';
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.get("/api/tasks", async (req, res) => {
-    try {
-      const tasks = await storage.getTasks();
-      res.json(tasks);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch tasks" });
-    }
-  });
+    // Health check endpoint
+    app.get('/health', (req, res) => {
+        res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    });
 
-  app.post("/api/tasks", async (req, res) => {
-    try {
-      const validatedData = insertTaskSchema.parse(req.body);
-      const task = await storage.createTask(validatedData);
-      res.status(201).json(task);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid task data" });
-    }
-  });
+    // Auth routes
+    app.use('/api/auth', authRoutes);
 
-  app.patch("/api/tasks/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const allowedUpdates = insertTaskSchema.partial().parse(req.body);
-      const task = await storage.updateTask(id, allowedUpdates);
-      
-      if (!task) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-      
-      res.json(task);
-    } catch (error) {
-      res.status(400).json({ error: "Failed to update task" });
-    }
-  });
+    // Tasks routes
+    app.use('/api/tasks', tasksRoutes);
 
-  app.delete("/api/tasks/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const deleted = await storage.deleteTask(id);
-      
-      if (!deleted) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-      
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to delete task" });
-    }
-  });
+    // Sessions routes
+    app.use('/api/sessions', sessionsRoutes);
 
-  app.get("/api/sessions", async (req, res) => {
-    try {
-      const sessions = await storage.getSessions();
-      res.json(sessions);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch sessions" });
-    }
-  });
+    // Streaks routes
+    app.use('/api/streaks', streaksRoutes);
 
-  app.post("/api/sessions", async (req, res) => {
-    try {
-      const validatedData = insertSessionSchema.parse(req.body);
-      const session = await storage.createSession(validatedData);
-      res.status(201).json(session);
-    } catch (error) {
-      res.status(400).json({ error: "Invalid session data" });
-    }
-  });
+    // Goals routes
+    app.use('/api/goals', goalsRoutes);
 
-  const httpServer = createServer(app);
+    // 404 handler
+    app.use((req, res) => {
+        res.status(404).json({ error: 'Route not found' });
+    });
 
-  return httpServer;
+    // Error handler
+    app.use((err: any, req: any, res: any, next: any) => {
+        console.error('Error:', err);
+        res.status(err.status || 500).json({
+            error: err.message || 'Internal server error',
+            ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+        });
+    });
+
+    const httpServer = createServer(app);
+
+    return httpServer;
 }

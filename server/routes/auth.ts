@@ -1,26 +1,26 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import { db } from '../db';
-import { users } from '../db/schema';
+import { users, streaks } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { generateToken, authenticateToken, AuthRequest } from '../middleware/auth';
 import { body, validationResult } from 'express-validator';
 
 const router = express.Router();
 
-// Validation middleware
+// =================== Validation ===================
 const registerValidation = [
     body('email').isEmail().normalizeEmail(),
-    body('password').isLength({ min: 6 }),
-    body('name').optional().trim().isLength({ min: 1, max: 255 })
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('name').optional().trim().isLength({ min: 1, max: 255 }),
 ];
 
 const loginValidation = [
     body('email').isEmail().normalizeEmail(),
-    body('password').exists()
+    body('password').exists().withMessage('Password is required'),
 ];
 
-// Register new user
+// =================== Register ===================
 router.post('/register', registerValidation, async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -39,23 +39,40 @@ router.post('/register', registerValidation, async (req, res) => {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create user
-        const newUser = await db.insert(users).values({
-            email,
-            password: hashedPassword,
-            name: name || null,
-        }).returning();
+        // Insert new user
+        const [newUser] = await db
+            .insert(users)
+            .values({
+                email,
+                password: hashedPassword,
+                name: name || '',
+            })
+            .returning();
+
+        // Create initial streak for user
+        await db
+            .insert(streaks)
+            .values({
+                userId: newUser.id,
+                currentStreak: 0,
+                longestStreak: 0,
+                lastActiveDate: null,
+            })
+            .catch(() => {
+                // Streak might already exist, ignore
+            });
 
         // Generate token
-        const token = generateToken(newUser[0].id);
+        const token = generateToken(newUser.id);
 
         res.status(201).json({
             message: 'User registered successfully',
             token,
             user: {
-                id: newUser[0].id,
-                email: newUser[0].email,
-                name: newUser[0].name,
+                id: newUser.id,
+                email: newUser.email,
+                name: newUser.name,
+                createdAt: newUser.createdAt,
             },
         });
     } catch (error) {
@@ -64,7 +81,7 @@ router.post('/register', registerValidation, async (req, res) => {
     }
 });
 
-// Login user
+// =================== Login ===================
 router.post('/login', loginValidation, async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -75,27 +92,28 @@ router.post('/login', loginValidation, async (req, res) => {
         const { email, password } = req.body;
 
         // Find user
-        const user = await db.select().from(users).where(eq(users.email, email));
-        if (user.length === 0) {
+        const [user] = await db.select().from(users).where(eq(users.email, email));
+        if (!user) {
             return res.status(400).json({ error: 'Invalid email or password' });
         }
 
         // Verify password
-        const validPassword = await bcrypt.compare(password, user[0].password);
+        const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
             return res.status(400).json({ error: 'Invalid email or password' });
         }
 
         // Generate token
-        const token = generateToken(user[0].id);
+        const token = generateToken(user.id);
 
         res.json({
             message: 'Login successful',
             token,
             user: {
-                id: user[0].id,
-                email: user[0].email,
-                name: user[0].name,
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                createdAt: user.createdAt,
             },
         });
     } catch (error) {
@@ -104,29 +122,67 @@ router.post('/login', loginValidation, async (req, res) => {
     }
 });
 
-// Get current user
+// =================== Get current user ===================
 router.get('/me', authenticateToken, async (req: AuthRequest, res) => {
     try {
-        const user = await db.select({
-            id: users.id,
-            email: users.email,
-            name: users.name,
-            createdAt: users.createdAt,
-        }).from(users).where(eq(users.id, req.userId!));
+        const [user] = await db
+            .select({
+                id: users.id,
+                email: users.email,
+                name: users.name,
+                createdAt: users.createdAt,
+                updatedAt: users.updatedAt,
+            })
+            .from(users)
+            .where(eq(users.id, req.userId));
 
-        if (user.length === 0) {
+        if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({ user: user[0] });
+        res.json({ user });
     } catch (error) {
         console.error('Get user error:', error);
         res.status(500).json({ error: 'Failed to fetch user data' });
     }
 });
 
-// Logout (client-side should remove token)
-router.post('/logout', authenticateToken, (req, res) => {
+// =================== Update user ===================
+router.patch('/me', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { name } = req.body;
+
+        if (name && (typeof name !== 'string' || name.length > 255)) {
+            return res.status(400).json({ error: 'Invalid name' });
+        }
+
+        const [updatedUser] = await db
+            .update(users)
+            .set({
+                name: name || undefined,
+                updatedAt: new Date(),
+            })
+            .where(eq(users.id, req.userId))
+            .returning();
+
+        res.json({
+            message: 'User updated successfully',
+            user: {
+                id: updatedUser.id,
+                email: updatedUser.email,
+                name: updatedUser.name,
+                createdAt: updatedUser.createdAt,
+                updatedAt: updatedUser.updatedAt,
+            },
+        });
+    } catch (error) {
+        console.error('Update user error:', error);
+        res.status(500).json({ error: 'Failed to update user' });
+    }
+});
+
+// =================== Logout ===================
+router.post('/logout', authenticateToken, (_req, res) => {
     res.json({ message: 'Logged out successfully' });
 });
 

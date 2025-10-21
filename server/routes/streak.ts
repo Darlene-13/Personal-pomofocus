@@ -21,8 +21,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
                 .insert(streaks)
                 .values({
                     userId,
-                    current_streak: 0,
-                    longest_streak: 0,
+                    currentStreak: 0,
+                    longestStreak: 0,
+                    lastActiveDate: null,
                 })
                 .returning();
 
@@ -53,24 +54,24 @@ router.post('/update', authenticateToken, async (req: AuthRequest, res) => {
         }
 
         const userStreak = userStreakArr[0];
-        const lastActive = userStreak.last_active_date; // match schema
-        let newStreak = userStreak.current_streak;
+        const lastActive = userStreak.lastActiveDate;
+        let newCurrentStreak = userStreak.currentStreak;
 
         if (lastActive === yesterday) {
-            newStreak += 1;
+            newCurrentStreak += 1;
         } else if (lastActive !== today) {
-            newStreak = 1;
+            newCurrentStreak = 1;
         }
 
-        const longestStreak = Math.max(newStreak, userStreak.longest_streak);
+        const newLongestStreak = Math.max(newCurrentStreak, userStreak.longestStreak);
 
         const [updated] = await db
             .update(streaks)
             .set({
-                current_streak: newStreak,
-                longest_streak: longestStreak,
-                last_active_date: today,
-                updated_at: new Date(),
+                currentStreak: newCurrentStreak,
+                longestStreak: newLongestStreak,
+                lastActiveDate: today,
+                updatedAt: new Date(),
             })
             .where(eq(streaks.userId, userId))
             .returning();
@@ -79,6 +80,28 @@ router.post('/update', authenticateToken, async (req: AuthRequest, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Failed to update streak' });
+    }
+});
+
+// POST /streak/reset - Reset streak (optional)
+router.post('/reset', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const userId = req.userId!;
+
+        const [updated] = await db
+            .update(streaks)
+            .set({
+                currentStreak: 0,
+                lastActiveDate: null,
+                updatedAt: new Date(),
+            })
+            .where(eq(streaks.userId, userId))
+            .returning();
+
+        res.json({ message: 'Streak reset', streak: updated });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to reset streak' });
     }
 });
 

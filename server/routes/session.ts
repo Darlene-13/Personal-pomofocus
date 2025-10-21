@@ -21,20 +21,57 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     }
 });
 
+// Get sessions by date
+router.get('/:date', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const { date } = req.params;
+
+        const dateSessions = await db
+            .select()
+            .from(sessions)
+            .where(
+                and(
+                    eq(sessions.userId, req.userId!),
+                    eq(sessions.date, date)
+                )
+            )
+            .orderBy(sessions.createdAt);
+
+        res.json(dateSessions);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch sessions' });
+    }
+});
+
 // Create session
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     try {
-        const { duration, sessionDate, sessionTime, taskId } = req.body;
+        const { type, duration, date, time, taskId } = req.body;
 
-        const newSession = await db.insert(sessions).values({
-            userId: req.userId!,
-            duration,
-            sessionDate,
-            sessionTime,
-            taskId,
-        }).returning();
+        // Validate input
+        if (!['work', 'break'].includes(type)) {
+            return res.status(400).json({ error: 'Type must be "work" or "break"' });
+        }
+        if (!duration || duration <= 0) {
+            return res.status(400).json({ error: 'Duration must be greater than 0' });
+        }
+        if (!date) {
+            return res.status(400).json({ error: 'Date is required (YYYY-MM-DD format)' });
+        }
 
-        res.json(newSession[0]);
+        const newSession = await db
+            .insert(sessions)
+            .values({
+                userId: req.userId!,
+                type,
+                duration,
+                date,
+                time: time || null,
+                taskId: taskId || null,
+            })
+            .returning();
+
+        res.status(201).json(newSession[0]);
     } catch (error) {
         res.status(500).json({ error: 'Failed to create session' });
     }
@@ -48,7 +85,8 @@ router.get('/stats/weekly', authenticateToken, async (req: AuthRequest, res) => 
 
         const stats = await db
             .select({
-                date: sessions.sessionDate,
+                date: sessions.date,
+                type: sessions.type,
                 totalMinutes: sql<number>`sum(${sessions.duration})`,
                 sessionCount: sql<number>`count(*)`,
             })
@@ -56,10 +94,29 @@ router.get('/stats/weekly', authenticateToken, async (req: AuthRequest, res) => 
             .where(
                 and(
                     eq(sessions.userId, req.userId!),
-                    gte(sessions.sessionDate, sevenDaysAgo.toISOString().split('T')[0])
+                    gte(sessions.date, sevenDaysAgo.toISOString().split('T')[0])
                 )
             )
-            .groupBy(sessions.sessionDate);
+            .groupBy(sessions.date, sessions.type);
+
+        res.json(stats);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+});
+
+// Get stats by type (work vs break)
+router.get('/stats/by-type', authenticateToken, async (req: AuthRequest, res) => {
+    try {
+        const stats = await db
+            .select({
+                type: sessions.type,
+                totalMinutes: sql<number>`sum(${sessions.duration})`,
+                sessionCount: sql<number>`count(*)`,
+            })
+            .from(sessions)
+            .where(eq(sessions.userId, req.userId!))
+            .groupBy(sessions.type);
 
         res.json(stats);
     } catch (error) {
