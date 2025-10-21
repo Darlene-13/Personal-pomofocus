@@ -10,7 +10,6 @@ import { eq, and } from 'drizzle-orm';
 
 dotenv.config();
 
-
 // =================== FIX FOR ES MODULES ===================
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
@@ -79,7 +78,7 @@ app.use((req, res, next) => {
 });
 
 // =================== SERVE STATIC FILES ===================
-const clientDistPath = path.join(__dirname, '../client/dist');
+const clientDistPath = path.join(__dirname, '../dist');
 console.log(`📁 Serving static files from: ${clientDistPath}`);
 app.use(express.static(clientDistPath));
 
