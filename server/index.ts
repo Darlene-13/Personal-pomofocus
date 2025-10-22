@@ -19,7 +19,7 @@ dotenv.config();
 async function runMigrations() {
     try {
         console.log('Running migrations...');
-        await migrate(db, { migrationsFolder: '../migrations' });
+        await migrate(db, { migrationsFolder: '../../migrations' });
         console.log('✅ Migrations completed');
     } catch (error: any) {
         if (error.message.includes('does not exist') || error.message.includes('already exists')) {

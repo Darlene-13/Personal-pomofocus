@@ -26,9 +26,21 @@ export const useTimeOfDay = (): TimeOfDay => {
             }
         };
 
+        // Update immediately and then every minute
+        updateTimeOfDay();
         const interval = setInterval(updateTimeOfDay, 60000);
-        return () => clearInterval(interval);
-    }, []);
+
+        // Save state before leaving
+        const handleBeforeUnload = () => {
+            localStorage.setItem('lastTimeOfDay', timeOfDay);
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, [timeOfDay]);
 
     return timeOfDay;
 };
