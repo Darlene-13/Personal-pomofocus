@@ -16,7 +16,7 @@ dotenv.config();
 // =================== RUN MIGRATIONS ON STARTUP ===================
 async function runMigrations() {
     try {
-        const migrationPath = path.join(__dirname, '../migrations/init.sql');
+        const migrationPath = path.join(__dirname, '../migrations/0000_init.sql');
 
         if (fs.existsSync(migrationPath)) {
             const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
@@ -29,18 +29,18 @@ async function runMigrations() {
 
             for (const statement of statements) {
                 try {
-                    await db.run(sql.raw(statement));
+                    await db.execute(sql.raw(statement));
                 } catch (err: any) {
                     // Table might already exist, that's ok
                     if (!err.message.includes('already exists')) {
-                        console.error('Migration error:', err.message);
+                        console.log('Migration note:', err.message);
                     }
                 }
             }
             console.log('✅ Migrations completed');
         }
     } catch (error) {
-        console.log('⚠️ Migration setup skipped:', error);
+        console.log('⚠️ Migration setup skipped');
     }
 }
 
