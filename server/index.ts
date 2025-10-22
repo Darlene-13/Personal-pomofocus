@@ -8,8 +8,43 @@ import { fileURLToPath } from 'url';
 import { db } from './db/index.js';
 import { users, streaks, tasks, sessions, goals } from './db/schema';
 import { eq, and } from 'drizzle-orm';
+import fs from 'fs';
+import { sql } from 'drizzle-orm';
 
 dotenv.config();
+
+// =================== RUN MIGRATIONS ON STARTUP ===================
+async function runMigrations() {
+    try {
+        const migrationPath = path.join(__dirname, '../migrations/init.sql');
+
+        if (fs.existsSync(migrationPath)) {
+            const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
+
+            // Split by statement-breakpoint and execute each statement
+            const statements = migrationSQL
+                .split('--> statement-breakpoint')
+                .map(s => s.trim())
+                .filter(s => s && !s.startsWith('--'));
+
+            for (const statement of statements) {
+                try {
+                    await db.run(sql.raw(statement));
+                } catch (err: any) {
+                    // Table might already exist, that's ok
+                    if (!err.message.includes('already exists')) {
+                        console.error('Migration error:', err.message);
+                    }
+                }
+            }
+            console.log('✅ Migrations completed');
+        }
+    } catch (error) {
+        console.log('⚠️ Migration setup skipped:', error);
+    }
+}
+
+runMigrations();
 
 // =================== FIX FOR ES MODULES ===================
 const __filename = fileURLToPath(import.meta.url);
