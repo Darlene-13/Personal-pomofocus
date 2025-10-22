@@ -64,14 +64,6 @@ export default function Home() {
 
     const musicEngineRef = useRef<any>(null);
 
-    const { timeLeft, totalTime, isRunning, isBreak, onPlayPause, onReset } = usePomodoro(
-        workDuration * 60,
-        breakDuration * 60
-    );
-
-    const prevTimeLeftRef = useRef(timeLeft);
-    const prevIsBreakRef = useRef(isBreak);
-
     const isLoggedIn = !!getAuthToken();
 
     const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
@@ -82,6 +74,48 @@ export default function Home() {
     const { data: sessions = [], isLoading: sessionsLoading, refetch: refetchSessions } = useQuery<Session[]>({
         queryKey: ["/api/sessions"],
         enabled: isLoggedIn,
+    });
+
+    // ACCUMULATED TIME MUTATION - saves when timer pauses
+    const createAccumulatedTimeMutation = useMutation({
+        mutationFn: async (session: { date: string; duration: number; type: string }) => {
+            console.log("⏱️ Saving accumulated time:", session);
+            return await apiRequest("POST", "/api/sessions", {
+                ...session,
+                isAccumulated: true,
+            });
+        },
+        onSuccess: (data) => {
+            console.log("✅ Accumulated time saved:", data);
+            queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+        },
+        onError: (error: any) => {
+            console.error("❌ Failed to save accumulated time:", error);
+        },
+    });
+
+    // COMPLETED SESSION MUTATION - saves when timer finishes
+    const createSessionMutation = useMutation({
+        mutationFn: async (session: { date: string; duration: number; type: string }) => {
+            console.log("📤 Creating completed session:", session);
+            return await apiRequest("POST", "/api/sessions", session);
+        },
+        onSuccess: (data) => {
+            console.log("✅ Session created successfully:", data);
+            queryClient.setQueryData<Session[]>(["/api/sessions"], (old) => {
+                if (!old) return [data];
+                return [...old, data];
+            });
+            refetchSessions();
+        },
+        onError: (error: any) => {
+            console.error("❌ Session creation error:", error);
+            toast({
+                title: "Warning",
+                description: "Session completed but failed to save. Your progress is safe.",
+                variant: "destructive",
+            });
+        },
     });
 
     const createTaskMutation = useMutation({
@@ -156,33 +190,37 @@ export default function Home() {
         },
     });
 
-    // FIXED: Proper session mutation with refetch
-    const createSessionMutation = useMutation({
-        mutationFn: async (session: { date: string; duration: number; type: string }) => {
-            console.log("📤 Creating session:", session);
-            return await apiRequest("POST", "/api/sessions", session);
-        },
-        onSuccess: (data) => {
-            console.log("✅ Session created successfully:", data);
+    // Callback for accumulated time (called when timer pauses)
+    const handleAccumulatedTime = useCallback(
+        (duration: number, sessionType: 'work' | 'break') => {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const date = `${year}-${month}-${day}`;
 
-            // Update cache immediately
-            queryClient.setQueryData<Session[]>(["/api/sessions"], (old) => {
-                if (!old) return [data];
-                return [...old, data];
-            });
+            const durationInMinutes = Math.round(duration / 60);
 
-            // Force refetch from server
-            refetchSessions();
+            if (isLoggedIn) {
+                createAccumulatedTimeMutation.mutate({
+                    date,
+                    duration: durationInMinutes,
+                    type: sessionType,
+                });
+            }
         },
-        onError: (error: any) => {
-            console.error("❌ Session creation error:", error);
-            toast({
-                title: "Warning",
-                description: "Session completed but failed to save. Your progress is safe.",
-                variant: "destructive",
-            });
-        },
-    });
+        [isLoggedIn, createAccumulatedTimeMutation]
+    );
+
+    // Use the usePomodoro hook with callback for accumulated time
+    const { timeLeft, totalTime, isRunning, isBreak, onPlayPause, onReset } = usePomodoro(
+        workDuration * 60,
+        breakDuration * 60,
+        handleAccumulatedTime
+    );
+
+    const prevTimeLeftRef = useRef(timeLeft);
+    const prevIsBreakRef = useRef(isBreak);
 
     useEffect(() => {
         requestPermission();
@@ -258,7 +296,7 @@ export default function Home() {
 
         const duration = sessionType === "work" ? workDuration : breakDuration;
 
-        console.log("💾 Saving session to database:", { date, duration, type: sessionType });
+        console.log("💾 Saving completed session to database:", { date, duration, type: sessionType });
 
         if (isLoggedIn) {
             createSessionMutation.mutate({

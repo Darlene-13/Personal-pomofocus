@@ -7,14 +7,17 @@ interface PomodoroState {
     isBreak: boolean;
 }
 
-export const usePomodoro = (workDuration = 25 * 60, breakDuration = 5 * 60) => {
+export const usePomodoro = (
+    workDuration = 25 * 60,
+    breakDuration = 5 * 60,
+    onAccumulatedTime?: (duration: number, type: 'work' | 'break') => void
+) => {
     const [state, setState] = useState<PomodoroState>(() => {
-        // Restore from localStorage if available
         const saved = localStorage.getItem('pomodoroState');
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
-                return { ...parsed, isRunning: false }; // Always start paused
+                return { ...parsed, isRunning: false };
             } catch {
                 // Fall back to default
             }
@@ -27,10 +30,10 @@ export const usePomodoro = (workDuration = 25 * 60, breakDuration = 5 * 60) => {
         };
     });
 
-    // Use timestamp-based timing for background tabs
     const [startTimestamp, setStartTimestamp] = useState<number | null>(null);
+    const [accumulatedTime, setAccumulatedTime] = useState(0);
 
-    // Main timer loop - uses requestAnimationFrame instead of setInterval
+    // Main timer loop
     useEffect(() => {
         if (!state.isRunning) return;
 
@@ -44,7 +47,7 @@ export const usePomodoro = (workDuration = 25 * 60, breakDuration = 5 * 60) => {
             const newTimeLeft = Math.max(0, state.totalTime - elapsed);
 
             if (newTimeLeft <= 0) {
-                // Timer finished
+                // Timer finished - full session completed
                 setState(prev => ({
                     ...prev,
                     timeLeft: 0,
@@ -53,6 +56,7 @@ export const usePomodoro = (workDuration = 25 * 60, breakDuration = 5 * 60) => {
                     totalTime: !prev.isBreak ? breakDuration : workDuration,
                 }));
                 setStartTimestamp(null);
+                setAccumulatedTime(0); // Reset accumulated time on completion
             } else {
                 setState(prev => ({ ...prev, timeLeft: newTimeLeft }));
                 frameId = requestAnimationFrame(tick);
@@ -74,9 +78,23 @@ export const usePomodoro = (workDuration = 25 * 60, breakDuration = 5 * 60) => {
     }, [state]);
 
     const onPlayPause = useCallback(() => {
-        setState(prev => ({ ...prev, isRunning: !prev.isRunning }));
+        setState(prev => {
+            const newIsRunning = !prev.isRunning;
+
+            // When pausing (transitioning from running to not running)
+            if (prev.isRunning && !newIsRunning) {
+                const timeSpent = prev.totalTime - prev.timeLeft;
+
+                // Only save if at least 1 minute (60 seconds) has been spent
+                if (timeSpent >= 60 && onAccumulatedTime) {
+                    onAccumulatedTime(timeSpent, prev.isBreak ? 'break' : 'work');
+                }
+            }
+
+            return { ...prev, isRunning: newIsRunning };
+        });
         setStartTimestamp(null);
-    }, []);
+    }, [onAccumulatedTime]);
 
     const onReset = useCallback(() => {
         setState(prev => ({
@@ -86,11 +104,13 @@ export const usePomodoro = (workDuration = 25 * 60, breakDuration = 5 * 60) => {
             isRunning: false,
         }));
         setStartTimestamp(null);
+        setAccumulatedTime(0);
         localStorage.removeItem('pomodoroState');
     }, [workDuration, breakDuration]);
 
     return {
         ...state,
+        accumulatedTime,
         onPlayPause,
         onReset,
     };
