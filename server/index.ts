@@ -19,13 +19,36 @@ dotenv.config();
 async function runMigrations() {
     try {
         console.log('Running migrations...');
-        await migrate(db, { migrationsFolder: '../../migrations' });
+
+        // migrations folder is in project root, server is also in root
+        // When compiled, server/index.ts becomes dist/server/index.js
+        // So we need to go up ONE level from dist to reach migrations
+        const migrationsFolder = process.env.NODE_ENV === 'production'
+            ? path.join(__dirname, '../../migrations')  // from dist/server -> project root
+            : path.join(__dirname, '../migrations');     // from server -> project root
+
+        console.log(`📂 Migrations folder: ${migrationsFolder}`);
+        console.log(`📂 __dirname: ${__dirname}`);
+
+        // Check if folder exists
+        if (fs.existsSync(migrationsFolder)) {
+            console.log('✅ Migrations folder found');
+            const metaPath = path.join(migrationsFolder, 'meta');
+            if (fs.existsSync(metaPath)) {
+                console.log('✅ Meta folder found');
+                console.log('📁 Meta contents:', fs.readdirSync(metaPath));
+            }
+        } else {
+            console.error('❌ Migrations folder NOT found');
+        }
+
+        await migrate(db, { migrationsFolder });
         console.log('✅ Migrations completed');
     } catch (error: any) {
         if (error.message.includes('does not exist') || error.message.includes('already exists')) {
             console.log('✅ Tables already exist or migrations skipped');
         } else {
-            console.error('Migration error:', error.message);
+            console.error('❌ Migration error:', error.message);
         }
     }
 }

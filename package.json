@@ -3,23 +3,22 @@
   "version": "1.0.0",
   "type": "module",
   "license": "MIT",
-
   "scripts": {
     "dev": "vite",
     "dev:backend": "tsx watch server/index.ts",
     "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev\"",
-    "build": "npm run build:client && npm run build:server && mkdir -p dist/migrations && cp -r migrations dist/migrations",
+    "build": "npx drizzle-kit generate && npm run build:client && npm run build:server",
     "build:client": "vite build",
     "build:server": "tsc",
     "preview": "vite preview",
     "start": "tsx server/index.ts",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
-    "db:pull": "drizzle-kit pull",
-    "db:check": "drizzle-kit check",
-    "db:up": "drizzle-kit up",
-    "db:studio": "drizzle-kit studio"
+    "db:generate": "npx drizzle-kit generate",
+    "db:migrate": "npx drizzle-kit migrate",
+    "db:push": "npx drizzle-kit push",
+    "db:pull": "npx drizzle-kit pull",
+    "db:check": "npx drizzle-kit check",
+    "db:up": "npx drizzle-kit up",
+    "db:studio": "npx drizzle-kit studio"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
