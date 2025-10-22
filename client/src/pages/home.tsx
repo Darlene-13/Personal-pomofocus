@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Settings, Timer as TimerIcon, ListTodo, BarChart3, Moon, Sun, LogIn, LogOut } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -64,17 +64,14 @@ export default function Home() {
 
     const musicEngineRef = useRef<any>(null);
 
-    // Use the usePomodoro hook with durations in seconds
     const { timeLeft, totalTime, isRunning, isBreak, onPlayPause, onReset } = usePomodoro(
         workDuration * 60,
         breakDuration * 60
     );
 
-    // Track previous state to detect when timer completes
     const prevTimeLeftRef = useRef(timeLeft);
     const prevIsBreakRef = useRef(isBreak);
 
-    // Check if user is logged in
     const isLoggedIn = !!getAuthToken();
 
     const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
@@ -82,12 +79,11 @@ export default function Home() {
         enabled: isLoggedIn,
     });
 
-    const { data: sessions = [], isLoading: sessionsLoading } = useQuery<Session[]>({
+    const { data: sessions = [], isLoading: sessionsLoading, refetch: refetchSessions } = useQuery<Session[]>({
         queryKey: ["/api/sessions"],
         enabled: isLoggedIn,
     });
 
-    // FIXED: Create task with priority parameter
     const createTaskMutation = useMutation({
         mutationFn: async ({ text, priority }: { text: string; priority: string }) => {
             console.log("📤 Sending task creation request:", { text, priority });
@@ -141,7 +137,6 @@ export default function Home() {
         },
         onSuccess: (data, id) => {
             console.log("✅ Task deleted successfully:", id);
-            // Optimistically update the UI
             queryClient.setQueryData<Task[]>(["/api/tasks"], (old) =>
                 old ? old.filter(task => task.id !== id) : []
             );
@@ -161,6 +156,7 @@ export default function Home() {
         },
     });
 
+    // FIXED: Proper session mutation with refetch
     const createSessionMutation = useMutation({
         mutationFn: async (session: { date: string; duration: number; type: string }) => {
             console.log("📤 Creating session:", session);
@@ -168,11 +164,15 @@ export default function Home() {
         },
         onSuccess: (data) => {
             console.log("✅ Session created successfully:", data);
-            // Immediately update the cache with the new session
-            queryClient.setQueryData<Session[]>(["/api/sessions"], (old) =>
-                old ? [...old, data] : [data]
-            );
-            queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+
+            // Update cache immediately
+            queryClient.setQueryData<Session[]>(["/api/sessions"], (old) => {
+                if (!old) return [data];
+                return [...old, data];
+            });
+
+            // Force refetch from server
+            refetchSessions();
         },
         onError: (error: any) => {
             console.error("❌ Session creation error:", error);
@@ -234,40 +234,32 @@ export default function Home() {
         }
     }, [musicPlaying, musicGenre, musicVolume]);
 
-    // FIXED: Handle timer completion properly - timer is independent of tasks
     useEffect(() => {
-        // Detect when timer reaches 0 from above 0
         if (prevTimeLeftRef.current > 0 && timeLeft === 0) {
-            // Use the PREVIOUS isBreak state to determine what session just completed
             const completedSessionType = prevIsBreakRef.current ? "break" : "work";
             console.log("⏰ Timer completed! Session type:", completedSessionType);
             handleSessionComplete(completedSessionType);
         }
 
-        // Update refs for next comparison
         prevTimeLeftRef.current = timeLeft;
         prevIsBreakRef.current = isBreak;
     }, [timeLeft, isBreak]);
 
-    const handleSessionComplete = (sessionType: "work" | "break") => {
+    const handleSessionComplete = useCallback((sessionType: "work" | "break") => {
         console.log(`🎉 Session completed: ${sessionType}`);
 
-        // Play alarm
         playTimerAlarm();
 
-        // Get current date in YYYY-MM-DD format
         const now = new Date();
         const year = now.getFullYear();
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
         const date = `${year}-${month}-${day}`;
 
-        // Save the session with the correct type and duration
         const duration = sessionType === "work" ? workDuration : breakDuration;
 
         console.log("💾 Saving session to database:", { date, duration, type: sessionType });
 
-        // Only save if user is logged in
         if (isLoggedIn) {
             createSessionMutation.mutate({
                 date,
@@ -290,7 +282,7 @@ export default function Home() {
             });
             notifySessionComplete("break");
         }
-    };
+    }, [isLoggedIn, workDuration, breakDuration, createSessionMutation, toast, notifySessionComplete]);
 
     const handleWorkDurationChange = (duration: number) => {
         if (duration >= 1 && duration <= 60) {
@@ -304,7 +296,6 @@ export default function Home() {
         }
     };
 
-    // FIXED: Accept priority parameter
     const handleAddTask = (text: string, priority: string) => {
         console.log("➕ Adding task:", { text, priority });
         createTaskMutation.mutate({ text, priority });
@@ -319,7 +310,6 @@ export default function Home() {
 
     const handleDeleteTask = (id: number) => {
         console.log("🗑️ Deleting task:", id);
-        // Show confirmation to prevent accidental deletion
         if (window.confirm("Are you sure you want to delete this task? This won't affect your timer or session history.")) {
             deleteTaskMutation.mutate(id);
         }
