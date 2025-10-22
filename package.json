@@ -12,7 +12,11 @@
     "build:client": "vite build",
     "build:server": "tsc",
     "preview": "vite preview",
-    "start": "tsx server/index.ts"
+    "start": "tsx server/index.ts",
+    "db:generate": "drizzle-kit generate:pg",
+    "db:push": "drizzle-kit push:pg",
+    "db:migrate": "tsx node_modules/drizzle-kit/bin.cjs migrate:pg",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
