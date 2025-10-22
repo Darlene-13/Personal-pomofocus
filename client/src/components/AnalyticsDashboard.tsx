@@ -158,7 +158,7 @@ export function AnalyticsDashboard({ sessions, tasks }: AnalyticsDashboardProps)
             </Card>
 
             {/* Bar Chart - Daily Focus Hours */}
-            <Card className="p-6">
+            <Card className="p-9">
                 <h3 className="text-2xl font-semibold mb-6" data-testid="text-chart-daily-hours-title">
                     Daily Focus Hours (Last 7 Days)
                 </h3>
@@ -206,7 +206,7 @@ export function AnalyticsDashboard({ sessions, tasks }: AnalyticsDashboardProps)
             {/* Pie Chart and Productivity Trend Side by Side */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Pie Chart - Task Completion */}
-                <Card className="p-6">
+                <Card className="p-9">
                     <h3 className="text-xl font-semibold mb-6" data-testid="text-chart-task-completion-title">
                         Task Completion Overview
                     </h3>
@@ -244,9 +244,9 @@ export function AnalyticsDashboard({ sessions, tasks }: AnalyticsDashboardProps)
                 </Card>
 
                 {/* Productivity Trend */}
-                <Card className="p-6">
+                <Card className="p-9">
                     <h3 className="text-xl font-semibold mb-6">Productivity Trend</h3>
-                    <ResponsiveContainer width="100%" height={400}>
+                    <ResponsiveContainer width="100%" height={500}>
                         <AreaChart data={dailyHours}>
                             <defs>
                                 <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
@@ -285,7 +285,7 @@ export function AnalyticsDashboard({ sessions, tasks }: AnalyticsDashboardProps)
             </div>
 
             {/* Table - Daily Breakdown */}
-            <Card className="p-6">
+            <Card className="p-9">
                 <h3 className="text-xl font-semibold mb-4">Daily Breakdown</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full">
