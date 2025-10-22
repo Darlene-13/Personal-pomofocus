@@ -1,0 +1,14 @@
+name: Keep Render App Warm
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Runs every 5 minutes
+  workflow_dispatch:  # Allows manual trigger from GitHub UI
+
+jobs:
+  keep-warm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake up Render app
+        run: |
+          curl -f https://focus-flow-88vb.onrender.com || echo "Ping failed, but that's okay"
