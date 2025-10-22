@@ -285,7 +285,7 @@ export default function Home() {
     }, [isLoggedIn, workDuration, breakDuration, createSessionMutation, toast, notifySessionComplete]);
 
     const handleWorkDurationChange = (duration: number) => {
-        if (duration >= 1 && duration <= 60) {
+        if (duration >= 1 && duration <= 120) {
             setWorkDuration(duration);
         }
     };
