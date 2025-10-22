@@ -9,10 +9,16 @@ import { db } from './db/index.js';
 import { users, streaks, tasks, sessions, goals } from './db/schema';
 import { eq, and } from 'drizzle-orm';
 import fs from 'fs';
-import { sql } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 
+
 dotenv.config();
+
+
+
+// =================== FIX FOR ES MODULES ===================
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 
 // =================== RUN MIGRATIONS ON STARTUP ===================
@@ -54,11 +60,6 @@ async function runMigrations() {
 }
 
 runMigrations();
-
-// =================== FIX FOR ES MODULES ===================
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // =================== TYPES ===================
 interface AuthRequest extends Request {
     userId?: number;
