@@ -7,5 +7,9 @@ if (!connectionString) {
     throw new Error('DATABASE_URL is not set');
 }
 
-const pool = new Pool({ connectionString });
+const pool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false }  // Add this line
+});
+
 export const db = drizzle(pool, { schema });
