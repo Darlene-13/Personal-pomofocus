@@ -1,11 +1,11 @@
 {
-  "id": "78f74c64-5603-40da-bedc-ce44b0d069b4",
+  "id": "f70a62d0-a614-48f9-a5fe-8588e50dbf7a",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.goals": {
-      "name": "goals",
+    "public.pomodoro_goals": {
+      "name": "pomodoro_goals",
       "schema": "",
       "columns": {
         "id": {
@@ -61,10 +61,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "goals_user_id_users_id_fk": {
-          "name": "goals_user_id_users_id_fk",
-          "tableFrom": "goals",
-          "tableTo": "users",
+        "pomodoro_goals_user_id_pomodoro_users_id_fk": {
+          "name": "pomodoro_goals_user_id_pomodoro_users_id_fk",
+          "tableFrom": "pomodoro_goals",
+          "tableTo": "pomodoro_users",
           "columnsFrom": [
             "user_id"
           ],
@@ -81,8 +81,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.sessions": {
-      "name": "sessions",
+    "public.pomodoro_sessions": {
+      "name": "pomodoro_sessions",
       "schema": "",
       "columns": {
         "id": {
@@ -137,10 +137,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "sessions_user_id_users_id_fk": {
-          "name": "sessions_user_id_users_id_fk",
-          "tableFrom": "sessions",
-          "tableTo": "users",
+        "pomodoro_sessions_user_id_pomodoro_users_id_fk": {
+          "name": "pomodoro_sessions_user_id_pomodoro_users_id_fk",
+          "tableFrom": "pomodoro_sessions",
+          "tableTo": "pomodoro_users",
           "columnsFrom": [
             "user_id"
           ],
@@ -150,10 +150,10 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "sessions_task_id_tasks_id_fk": {
-          "name": "sessions_task_id_tasks_id_fk",
-          "tableFrom": "sessions",
-          "tableTo": "tasks",
+        "pomodoro_sessions_task_id_pomodoro_tasks_id_fk": {
+          "name": "pomodoro_sessions_task_id_pomodoro_tasks_id_fk",
+          "tableFrom": "pomodoro_sessions",
+          "tableTo": "pomodoro_tasks",
           "columnsFrom": [
             "task_id"
           ],
@@ -170,8 +170,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.streaks": {
-      "name": "streaks",
+    "public.pomodoro_streaks": {
+      "name": "pomodoro_streaks",
       "schema": "",
       "columns": {
         "id": {
@@ -216,10 +216,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "streaks_user_id_users_id_fk": {
-          "name": "streaks_user_id_users_id_fk",
-          "tableFrom": "streaks",
-          "tableTo": "users",
+        "pomodoro_streaks_user_id_pomodoro_users_id_fk": {
+          "name": "pomodoro_streaks_user_id_pomodoro_users_id_fk",
+          "tableFrom": "pomodoro_streaks",
+          "tableTo": "pomodoro_users",
           "columnsFrom": [
             "user_id"
           ],
@@ -232,8 +232,8 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "streaks_user_id_unique": {
-          "name": "streaks_user_id_unique",
+        "pomodoro_streaks_user_id_unique": {
+          "name": "pomodoro_streaks_user_id_unique",
           "nullsNotDistinct": false,
           "columns": [
             "user_id"
@@ -244,8 +244,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.tasks": {
-      "name": "tasks",
+    "public.pomodoro_tasks": {
+      "name": "pomodoro_tasks",
       "schema": "",
       "columns": {
         "id": {
@@ -296,10 +296,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "tasks_user_id_users_id_fk": {
-          "name": "tasks_user_id_users_id_fk",
-          "tableFrom": "tasks",
-          "tableTo": "users",
+        "pomodoro_tasks_user_id_pomodoro_users_id_fk": {
+          "name": "pomodoro_tasks_user_id_pomodoro_users_id_fk",
+          "tableFrom": "pomodoro_tasks",
+          "tableTo": "pomodoro_users",
           "columnsFrom": [
             "user_id"
           ],
@@ -316,8 +316,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.users": {
-      "name": "users",
+    "public.pomodoro_users": {
+      "name": "pomodoro_users",
       "schema": "",
       "columns": {
         "id": {
@@ -363,8 +363,8 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "users_email_unique": {
-          "name": "users_email_unique",
+        "pomodoro_users_email_unique": {
+          "name": "pomodoro_users_email_unique",
           "nullsNotDistinct": false,
           "columns": [
             "email"

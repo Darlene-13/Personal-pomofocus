@@ -1,7 +1,7 @@
 import { pgTable, serial, text, timestamp, boolean, integer, varchar } from 'drizzle-orm/pg-core';
 
 // Users table
-export const users = pgTable('users', {
+export const users = pgTable('pomodoro_users', {
     id: serial('id').primaryKey(),
     email: varchar('email', { length: 255 }).notNull().unique(),
     password: text('password').notNull(),
@@ -11,7 +11,7 @@ export const users = pgTable('users', {
 });
 
 // Pomodoro Sessions
-export const sessions = pgTable('sessions', {
+export const sessions = pgTable('pomodoro_sessions', {
     id: serial('id').primaryKey(),
     userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
     type: varchar('type', { length: 20 }).notNull(), // 'work' or 'break'
@@ -23,7 +23,7 @@ export const sessions = pgTable('sessions', {
 });
 
 // Tasks
-export const tasks = pgTable('tasks', {
+export const tasks = pgTable('pomodoro_tasks', {
     id: serial('id').primaryKey(),
     userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
     text: text('text').notNull(),
@@ -34,7 +34,7 @@ export const tasks = pgTable('tasks', {
 });
 
 // Goals
-export const goals = pgTable('goals', {
+export const goals = pgTable('pomodoro_goals', {
     id: serial('id').primaryKey(),
     userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
     type: varchar('type', { length: 20 }).notNull(), // 'daily', 'weekly', 'monthly'
@@ -46,7 +46,7 @@ export const goals = pgTable('goals', {
 });
 
 // Streaks
-export const streaks = pgTable('streaks', {
+export const streaks = pgTable('pomodoro_streaks', {
     id: serial('id').primaryKey(),
     userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull().unique(),
     currentStreak: integer('current_streak').default(0).notNull(),
