@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { getAuthToken } from "./auth"; // ADD THIS IMPORT
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -14,21 +15,27 @@ async function throwIfResNotOk(res: Response) {
  */
 export async function apiRequest(
     method: string,
-    url: string, // 'url' should be like '/api/some-path'
+    url: string,
     data?: unknown,
     extraHeaders?: Record<string, string>
 ): Promise<any> {
+    const token = getAuthToken(); // GET THE TOKEN
 
-    // --- UPDATE THIS LINE ---
-    // Prepend the BASE_URL to the url
+    const headers: Record<string, string> = {
+        ...(data ? { "Content-Type": "application/json" } : {}),
+        ...extraHeaders,
+    };
+
+    // ADD AUTH HEADER IF TOKEN EXISTS
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const res = await fetch(`${BASE_URL}${url}`, {
         method,
-        headers: {
-            ...(data ? { "Content-Type": "application/json" } : {}),
-            ...extraHeaders,
-        },
+        headers,
         body: data ? JSON.stringify(data) : undefined,
-        credentials: "include", // still include cookies if needed
+        credentials: "include",
     });
 
     if (!res.ok) {
@@ -49,9 +56,20 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
     ({ on401: unauthorizedBehavior }) =>
         async ({ queryKey }) => {
-            // This was already correct
+            const token = getAuthToken(); // GET THE TOKEN
             const url = `${BASE_URL}${queryKey.join("/")}`;
-            const res = await fetch(url, { credentials: "include" });
+
+            const headers: Record<string, string> = {};
+
+            // ADD AUTH HEADER IF TOKEN EXISTS
+            if (token) {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
+
+            const res = await fetch(url, {
+                credentials: "include",
+                headers,
+            });
 
             if (unauthorizedBehavior === "returnNull" && res.status === 401) {
                 return null;
