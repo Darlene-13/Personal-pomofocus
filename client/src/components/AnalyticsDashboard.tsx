@@ -1,4 +1,4 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line, Area, AreaChart } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from "recharts";
 import { Card } from "@/components/ui/card";
 import { Clock, CheckCircle, Target, Download, TrendingUp, Calendar } from "lucide-react";
 import { Session, Task } from "../../../server/db/schema";
@@ -31,7 +31,6 @@ export function AnalyticsDashboard({ sessions, tasks }: AnalyticsDashboardProps)
         };
     });
 
-    // Calculate weekly statistics
     const weekTotalMinutes = dailyHours.reduce((sum, day) => sum + day.minutes, 0);
     const weekTotalHours = (weekTotalMinutes / 60).toFixed(1);
     const weekTotalSessions = dailyHours.reduce((sum, day) => sum + day.sessions, 0);
@@ -158,7 +157,7 @@ export function AnalyticsDashboard({ sessions, tasks }: AnalyticsDashboardProps)
                 </div>
             </Card>
 
-            {/* Large Main Chart */}
+            {/* Bar Chart - Daily Focus Hours */}
             <Card className="p-6">
                 <h3 className="text-2xl font-semibold mb-6" data-testid="text-chart-daily-hours-title">
                     Daily Focus Hours (Last 7 Days)
@@ -204,7 +203,45 @@ export function AnalyticsDashboard({ sessions, tasks }: AnalyticsDashboardProps)
                 </ResponsiveContainer>
             </Card>
 
-            {/* Detailed Daily Breakdown Table */}
+            {/* Pie Chart - Task Completion */}
+            <Card className="p-6">
+                <h3 className="text-2xl font-semibold mb-6" data-testid="text-chart-task-completion-title">
+                    Task Completion Overview
+                </h3>
+                <ResponsiveContainer width="100%" height={500}>
+                    <PieChart>
+                        <Pie
+                            data={taskData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                            outerRadius={150}
+                            fill="#8884d8"
+                            dataKey="value"
+                        >
+                            {taskData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                        </Pie>
+                        <Tooltip
+                            contentStyle={{
+                                backgroundColor: "hsl(var(--popover))",
+                                border: "1px solid hsl(var(--border))",
+                                borderRadius: "var(--radius)",
+                            }}
+                        />
+                        <Legend
+                            wrapperStyle={{
+                                fontSize: "14px",
+                                paddingTop: "20px",
+                            }}
+                        />
+                    </PieChart>
+                </ResponsiveContainer>
+            </Card>
+
+            {/* Table - Daily Breakdown */}
             <Card className="p-6">
                 <h3 className="text-xl font-semibold mb-4">Daily Breakdown</h3>
                 <div className="overflow-x-auto">
@@ -254,86 +291,6 @@ export function AnalyticsDashboard({ sessions, tasks }: AnalyticsDashboardProps)
                     </table>
                 </div>
             </Card>
-
-            {/* Task Completion Chart */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="p-6">
-                    <h3 className="text-xl font-semibold mb-4" data-testid="text-chart-task-completion-title">
-                        Task Completion Overview
-                    </h3>
-                    <ResponsiveContainer width="100%" height={350}>
-                        <PieChart>
-                            <Pie
-                                data={taskData}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
-                                outerRadius={120}
-                                fill="#8884d8"
-                                dataKey="value"
-                            >
-                                {taskData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: "hsl(var(--popover))",
-                                    border: "1px solid hsl(var(--border))",
-                                    borderRadius: "var(--radius)",
-                                }}
-                            />
-                            <Legend
-                                wrapperStyle={{
-                                    fontSize: "14px",
-                                    paddingTop: "20px",
-                                }}
-                            />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </Card>
-
-                {/* Productivity Trend */}
-                <Card className="p-6">
-                    <h3 className="text-xl font-semibold mb-4">Productivity Trend</h3>
-                    <ResponsiveContainer width="100%" height={350}>
-                        <AreaChart data={dailyHours}>
-                            <defs>
-                                <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
-                                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.05}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                            <XAxis
-                                dataKey="day"
-                                stroke="hsl(var(--muted-foreground))"
-                                style={{ fontSize: "12px" }}
-                            />
-                            <YAxis
-                                stroke="hsl(var(--muted-foreground))"
-                                style={{ fontSize: "12px" }}
-                            />
-                            <Tooltip
-                                contentStyle={{
-                                    backgroundColor: "hsl(var(--popover))",
-                                    border: "1px solid hsl(var(--border))",
-                                    borderRadius: "var(--radius)",
-                                }}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="hours"
-                                stroke="hsl(var(--primary))"
-                                fillOpacity={1}
-                                fill="url(#colorTrend)"
-                                strokeWidth={3}
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
-                </Card>
-            </div>
         </div>
     );
 }
