@@ -70,35 +70,46 @@ export default function Home() {
         breakDuration * 60
     );
 
-    // Track previous timeLeft to detect when timer reaches 0
+    // Track previous state to detect when timer completes
     const prevTimeLeftRef = useRef(timeLeft);
+    const prevIsBreakRef = useRef(isBreak);
 
     // Check if user is logged in
     const isLoggedIn = !!getAuthToken();
 
     const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
         queryKey: ["/api/tasks"],
+        enabled: isLoggedIn,
     });
 
     const { data: sessions = [], isLoading: sessionsLoading } = useQuery<Session[]>({
         queryKey: ["/api/sessions"],
+        enabled: isLoggedIn,
     });
 
+    // FIXED: Create task with priority parameter
     const createTaskMutation = useMutation({
-        mutationFn: async (text: string) => {
-            return await apiRequest("POST", "/api/tasks", { text, completed: false });
+        mutationFn: async ({ text, priority }: { text: string; priority: string }) => {
+            console.log("📤 Sending task creation request:", { text, priority });
+            return await apiRequest("POST", "/api/tasks", {
+                text,
+                priority,
+                completed: false
+            });
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
+            console.log("✅ Task created successfully:", data);
             queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
             toast({
                 title: "Task added",
                 description: "Your task has been added successfully.",
             });
         },
-        onError: () => {
+        onError: (error: any) => {
+            console.error("❌ Task creation error:", error);
             toast({
                 title: "Error",
-                description: "Failed to add task. Please try again.",
+                description: error.message || "Failed to add task. Please try again.",
                 variant: "destructive",
             });
         },
@@ -106,12 +117,15 @@ export default function Home() {
 
     const updateTaskMutation = useMutation({
         mutationFn: async ({ id, completed }: { id: number; completed: boolean }) => {
+            console.log("📤 Updating task:", { id, completed });
             return await apiRequest("PATCH", `/api/tasks/${id}`, { completed });
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
+            console.log("✅ Task updated successfully:", data);
             queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
         },
-        onError: () => {
+        onError: (error: any) => {
+            console.error("❌ Task update error:", error);
             toast({
                 title: "Error",
                 description: "Failed to update task. Please try again.",
@@ -122,16 +136,23 @@ export default function Home() {
 
     const deleteTaskMutation = useMutation({
         mutationFn: async (id: number) => {
+            console.log("📤 Deleting task:", id);
             return await apiRequest("DELETE", `/api/tasks/${id}`, undefined);
         },
-        onSuccess: () => {
+        onSuccess: (data, id) => {
+            console.log("✅ Task deleted successfully:", id);
+            // Optimistically update the UI
+            queryClient.setQueryData<Task[]>(["/api/tasks"], (old) =>
+                old ? old.filter(task => task.id !== id) : []
+            );
             queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
             toast({
                 title: "Task deleted",
                 description: "Your task has been removed.",
             });
         },
-        onError: () => {
+        onError: (error: any) => {
+            console.error("❌ Task deletion error:", error);
             toast({
                 title: "Error",
                 description: "Failed to delete task. Please try again.",
@@ -142,10 +163,24 @@ export default function Home() {
 
     const createSessionMutation = useMutation({
         mutationFn: async (session: { date: string; duration: number; type: string }) => {
+            console.log("📤 Creating session:", session);
             return await apiRequest("POST", "/api/sessions", session);
         },
-        onSuccess: () => {
+        onSuccess: (data) => {
+            console.log("✅ Session created successfully:", data);
+            // Immediately update the cache with the new session
+            queryClient.setQueryData<Session[]>(["/api/sessions"], (old) =>
+                old ? [...old, data] : [data]
+            );
             queryClient.invalidateQueries({ queryKey: ["/api/sessions"] });
+        },
+        onError: (error: any) => {
+            console.error("❌ Session creation error:", error);
+            toast({
+                title: "Warning",
+                description: "Session completed but failed to save. Your progress is safe.",
+                variant: "destructive",
+            });
         },
     });
 
@@ -199,38 +234,58 @@ export default function Home() {
         }
     }, [musicPlaying, musicGenre, musicVolume]);
 
-    // Handle timer completion - detect when timeLeft goes from 1 to 0
+    // FIXED: Handle timer completion properly - timer is independent of tasks
     useEffect(() => {
+        // Detect when timer reaches 0 from above 0
         if (prevTimeLeftRef.current > 0 && timeLeft === 0) {
-            handleSessionComplete();
+            // Use the PREVIOUS isBreak state to determine what session just completed
+            const completedSessionType = prevIsBreakRef.current ? "break" : "work";
+            console.log("⏰ Timer completed! Session type:", completedSessionType);
+            handleSessionComplete(completedSessionType);
         }
-        prevTimeLeftRef.current = timeLeft;
-    }, [timeLeft]);
 
-    const handleSessionComplete = () => {
+        // Update refs for next comparison
+        prevTimeLeftRef.current = timeLeft;
+        prevIsBreakRef.current = isBreak;
+    }, [timeLeft, isBreak]);
+
+    const handleSessionComplete = (sessionType: "work" | "break") => {
+        console.log(`🎉 Session completed: ${sessionType}`);
+
         // Play alarm
         playTimerAlarm();
 
+        // Get current date in YYYY-MM-DD format
         const now = new Date();
-        const date = now.toISOString().split("T")[0];
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const date = `${year}-${month}-${day}`;
 
-        // Save the session (note: isBreak reflects the session type that just completed)
-        createSessionMutation.mutate({
-            date,
-            duration: isBreak ? breakDuration : workDuration,
-            type: isBreak ? "break" : "work",
-        });
+        // Save the session with the correct type and duration
+        const duration = sessionType === "work" ? workDuration : breakDuration;
 
-        if (!isBreak) {
+        console.log("💾 Saving session to database:", { date, duration, type: sessionType });
+
+        // Only save if user is logged in
+        if (isLoggedIn) {
+            createSessionMutation.mutate({
+                date,
+                duration,
+                type: sessionType,
+            });
+        }
+
+        if (sessionType === "work") {
             setQuoteIndex((prev) => (prev + 1) % motivationalQuotes.length);
             toast({
-                title: "Focus session complete!",
-                description: "Great work! Time for a break.",
+                title: "Focus session complete! 🎯",
+                description: `You completed a ${workDuration}-minute focus session!`,
             });
             notifySessionComplete("work");
         } else {
             toast({
-                title: "Break complete!",
+                title: "Break complete! 💪",
                 description: "Ready to focus again?",
             });
             notifySessionComplete("break");
@@ -240,20 +295,19 @@ export default function Home() {
     const handleWorkDurationChange = (duration: number) => {
         if (duration >= 1 && duration <= 60) {
             setWorkDuration(duration);
-            // Note: usePomodoro hook will need to be recreated with new duration
-            // Consider adding a way to update durations in the hook
         }
     };
 
     const handleBreakDurationChange = (duration: number) => {
         if (duration >= 1 && duration <= 30) {
             setBreakDuration(duration);
-            // Note: usePomodoro hook will need to be recreated with new duration
         }
     };
 
-    const handleAddTask = (text: string) => {
-        createTaskMutation.mutate(text);
+    // FIXED: Accept priority parameter
+    const handleAddTask = (text: string, priority: string) => {
+        console.log("➕ Adding task:", { text, priority });
+        createTaskMutation.mutate({ text, priority });
     };
 
     const handleToggleTask = (id: number) => {
@@ -264,7 +318,11 @@ export default function Home() {
     };
 
     const handleDeleteTask = (id: number) => {
-        deleteTaskMutation.mutate(id);
+        console.log("🗑️ Deleting task:", id);
+        // Show confirmation to prevent accidental deletion
+        if (window.confirm("Are you sure you want to delete this task? This won't affect your timer or session history.")) {
+            deleteTaskMutation.mutate(id);
+        }
     };
 
     const handleLogout = () => {
@@ -493,7 +551,7 @@ export default function Home() {
                                                 </div>
                                             ))}
                                         {tasks.filter((t) => !t.completed).length === 0 && (
-                                            <p className="text-sm text-muted-foreground">All tasks completed!</p>
+                                            <p className="text-sm text-muted-foreground">All tasks completed! 🎉</p>
                                         )}
                                     </div>
                                 )}
