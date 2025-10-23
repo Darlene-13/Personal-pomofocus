@@ -317,6 +317,7 @@ app.delete('/api/tasks/:id', authenticateToken, async (req: AuthRequest, res: Re
 });
 
 // =================== SESSIONS ROUTES ===================
+// =================== SESSIONS ROUTES ===================
 app.get('/api/sessions', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const userSessions = await db
@@ -331,20 +332,88 @@ app.get('/api/sessions', authenticateToken, async (req: AuthRequest, res: Respon
 
 app.post('/api/sessions', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { type, duration, date, time, taskId } = req.body;
+        const { type, duration, date, time, taskId, isAccumulated } = req.body;
+
+        // Validate required fields
         if (!type || !duration || !date) {
-            res.status(400).json({ error: 'Missing required fields' });
+            res.status(400).json({ error: 'Missing required fields: type, duration, date' });
             return;
         }
 
+        // Validate type
+        if (type !== 'work' && type !== 'break') {
+            res.status(400).json({ error: 'Type must be either "work" or "break"' });
+            return;
+        }
+
+        // Validate duration is positive
+        if (typeof duration !== 'number' || duration <= 0) {
+            res.status(400).json({ error: 'Duration must be a positive number' });
+            return;
+        }
+
+        // Log the session creation
+        const sessionLabel = isAccumulated ? 'accumulated' : 'completed';
+        console.log(`📝 Creating ${sessionLabel} ${type} session: ${duration} minutes on ${date}`);
+
         const [newSession] = await db
             .insert(sessions)
-            .values({ userId: req.userId!, type, duration, date, time, taskId })
+            .values({
+                userId: req.userId!,
+                type,
+                duration,
+                date,
+                time: time || null,
+                taskId: taskId || null
+            })
             .returning();
 
+        console.log(`✅ Session saved with ID: ${newSession.id}`);
         res.status(201).json(newSession);
     } catch (error) {
+        console.error('Session creation error:', error);
         res.status(500).json({ error: 'Failed to create session' });
+    }
+});
+
+// Optional: Get daily session stats
+app.get('/api/sessions/stats/:date', authenticateToken, async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { date } = req.params;
+
+        const daySessions = await db
+            .select()
+            .from(sessions)
+            .where(and(
+                eq(sessions.userId, req.userId!),
+                eq(sessions.date, date)
+            ));
+
+        const workSessions = daySessions.filter(s => s.type === 'work');
+        const breakSessions = daySessions.filter(s => s.type === 'break');
+
+        const workMinutes = workSessions.reduce((sum, s) => sum + s.duration, 0);
+        const breakMinutes = breakSessions.reduce((sum, s) => sum + s.duration, 0);
+
+        res.json({
+            date,
+            work: {
+                totalMinutes: workMinutes,
+                totalHours: (workMinutes / 60).toFixed(1),
+                sessions: workSessions.length,
+                avgDuration: workSessions.length > 0 ? Math.round(workMinutes / workSessions.length) : 0
+            },
+            break: {
+                totalMinutes: breakMinutes,
+                totalHours: (breakMinutes / 60).toFixed(1),
+                sessions: breakSessions.length,
+                avgDuration: breakSessions.length > 0 ? Math.round(breakMinutes / breakSessions.length) : 0
+            },
+            allSessions: daySessions
+        });
+    } catch (error) {
+        console.error('Stats fetch error:', error);
+        res.status(500).json({ error: 'Failed to fetch session stats' });
     }
 });
 
